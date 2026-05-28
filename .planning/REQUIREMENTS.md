@@ -13,11 +13,11 @@
 
 ### Analyse
 
-- [ ] **ANAL-01**: L'utilisateur peut lancer un scan d'un répertoire et obtenir la liste de tous les fichiers audio avec format, bitrate, taille en Mo
-- [ ] **ANAL-02**: Chaque fichier affiche sample rate et durée en plus du format/bitrate/taille
-- [ ] **ANAL-03**: Chaque fichier affiche un indicateur visuel si Genre, BPM et Key sont déjà remplis dans les tags
-- [ ] **ANAL-04**: L'utilisateur peut exporter la liste analysée en CSV
-- [ ] **ANAL-05**: Le scan est non-bloquant — l'UI reste réactive pendant l'analyse (worker thread + résultats en streaming)
+- [ ] **SCAN-01**: L'utilisateur peut lancer un scan d'un répertoire et obtenir la liste de tous les fichiers audio avec format, bitrate, taille en Mo
+- [ ] **SCAN-02**: Chaque fichier affiche sample rate et durée en plus du format/bitrate/taille
+- [ ] **SCAN-03**: Chaque fichier affiche un indicateur visuel si Genre, BPM et Key sont déjà remplis dans les tags
+- [ ] **SCAN-04**: L'utilisateur peut exporter la liste analysée en CSV
+- [ ] **SCAN-05**: Le scan est non-bloquant — l'UI reste réactive pendant l'analyse (worker thread + résultats en streaming)
 
 ### Conversion
 
@@ -63,8 +63,8 @@
 
 ### Analyse avancée
 
-- **ANAL-V2-01**: Détection des doublons (par fingerprint audio ou hash)
-- **ANAL-V2-02**: Filtres et tri dans la vue bibliothèque (par format, bitrate, état des tags)
+- **SCAN-V2-01**: Détection des doublons (par fingerprint audio ou hash)
+- **SCAN-V2-02**: Filtres et tri dans la vue bibliothèque (par format, bitrate, état des tags)
 
 ### Distribution
 
@@ -90,11 +90,11 @@
 | FOUND-01 | Phase 1 | Pending |
 | FOUND-02 | Phase 1 | Pending |
 | FOUND-03 | Phase 1 | Pending |
-| ANAL-01 | Phase 2 | Pending |
-| ANAL-02 | Phase 2 | Pending |
-| ANAL-03 | Phase 2 | Pending |
-| ANAL-04 | Phase 2 | Pending |
-| ANAL-05 | Phase 2 | Pending |
+| SCAN-01 | Phase 2 | Pending |
+| SCAN-02 | Phase 2 | Pending |
+| SCAN-03 | Phase 2 | Pending |
+| SCAN-04 | Phase 2 | Pending |
+| SCAN-05 | Phase 2 | Pending |
 | CONV-01 | Phase 3 | Pending |
 | CONV-02 | Phase 3 | Pending |
 | CONV-03 | Phase 3 | Pending |

@@ -30,7 +30,7 @@
 **Goal:** Users can scan a folder and see every audio file with full technical metadata and tag completeness indicators, without the UI freezing.
 **Mode:** mvp
 **Depends on:** Phase 1
-**Requirements:** ANAL-01, ANAL-02, ANAL-03, ANAL-04, ANAL-05
+**Requirements:** SCAN-01, SCAN-02, SCAN-03, SCAN-04, SCAN-05
 **Success Criteria**:
   1. User triggers a scan and sees a live-updating list of audio files showing format, bitrate, file size, sample rate, and duration
   2. Each file row shows a visual indicator (e.g. colored badge) for whether Genre, BPM, and Key tags are already filled
