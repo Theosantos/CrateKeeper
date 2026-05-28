@@ -393,7 +393,7 @@ export const useAppStore = create<AppState>((set) => ({
 | A2 | better-sqlite3 12.x prebuilds match Electron 42 ABI without rebuild | Pitfall 3 | Medium — may need `electron-rebuild` postinstall; mitigation documented |
 | A3 | electron 42 is what the current scaffold pins | Standard Stack | Low — scaffold may pin a slightly different 4x; verify post-scaffold |
 
-## Open Questions
+## Open Questions (RESOLVED — verified at first dev launch per Plan 01-01 Task 1 + checkpoint Task 4)
 
 1. **Does better-sqlite3 12.10 load cleanly under Electron 42 without electron-rebuild?**
    - What we know: better-sqlite3 publishes Electron prebuilds; engines cover Node 20–26.
