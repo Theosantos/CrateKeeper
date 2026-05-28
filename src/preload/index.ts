@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
 import { IpcChannels, type DjUtilsApi } from '../shared/ipc-types'
 
 const djUtils: DjUtilsApi = {
@@ -8,19 +7,15 @@ const djUtils: DjUtilsApi = {
   setRootFolder: (path: string) => ipcRenderer.invoke(IpcChannels.SetRootFolder, path)
 }
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
+// With contextIsolation:true + sandbox:true, only contextBridge works.
+// The window.* fallback is kept for the (currently unused) isolation-off case.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('djUtils', djUtils)
   } catch (error) {
     console.error(error)
   }
 } else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
   // @ts-ignore (define in dts)
   window.djUtils = djUtils
 }
