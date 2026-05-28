@@ -1,21 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppStore } from './useAppStore'
 
+import type { DjUtilsApi } from '../../../shared/ipc-types'
+
 type MockedApi = {
-  pickFolder: ReturnType<typeof vi.fn>
-  getRootFolder: ReturnType<typeof vi.fn>
-  setRootFolder: ReturnType<typeof vi.fn>
+  pickFolder: ReturnType<typeof vi.fn<DjUtilsApi['pickFolder']>>
+  getRootFolder: ReturnType<typeof vi.fn<DjUtilsApi['getRootFolder']>>
+  setRootFolder: ReturnType<typeof vi.fn<DjUtilsApi['setRootFolder']>>
 }
 
 function installDjUtilsMock(overrides: Partial<MockedApi> = {}): MockedApi {
   const api: MockedApi = {
-    pickFolder: vi.fn().mockResolvedValue(null),
-    getRootFolder: vi.fn().mockResolvedValue(null),
-    setRootFolder: vi.fn().mockResolvedValue(undefined),
+    pickFolder: vi.fn<DjUtilsApi['pickFolder']>().mockResolvedValue(null),
+    getRootFolder: vi.fn<DjUtilsApi['getRootFolder']>().mockResolvedValue(null),
+    setRootFolder: vi.fn<DjUtilsApi['setRootFolder']>().mockResolvedValue(undefined),
     ...overrides
   }
   // The renderer only ever talks through window.djUtils — the preload exposes it.
-  ;(globalThis as unknown as { window: Window & { djUtils: MockedApi } }).window.djUtils = api
+  globalThis.window.djUtils = api as unknown as DjUtilsApi
   return api
 }
 
