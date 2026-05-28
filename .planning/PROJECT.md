@@ -51,9 +51,10 @@ Permettre à un DJ de passer de "bibliothèque en désordre" à "collection prop
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Electron vs web hébergé | Accès filesystem natif, distribution simple (.dmg/.exe) | — Pending |
-| Tags dans les fichiers vs XML Rekordbox | Simplicité v1, tags ID3 reconnus nativement | — Pending |
-| FFmpeg pour la conversion | Standard industrie, supporte tous formats, performant | — Pending |
+| Electron vs web hébergé | Accès filesystem natif, distribution simple (.dmg/.exe) pour amis non-devs | ✓ Electron |
+| Electron + Node.js vs Electron + Python backend | Stack cohérente, pas de process Python à bundler, libs Node audio solides | ✓ Node.js pur |
+| Tags dans les fichiers vs XML Rekordbox | Simplicité v1, tags ID3 reconnus nativement | ✓ Tags fichiers |
+| FFmpeg pour la conversion | Standard industrie, supporte tous formats, performant | ✓ ffmpeg-static |
 
 ## Evolution
 
