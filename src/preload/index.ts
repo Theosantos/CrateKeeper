@@ -1,8 +1,12 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { IpcChannels, type DjUtilsApi } from '../shared/ipc-types'
 
-// Custom APIs for renderer
-const api = {}
+const djUtils: DjUtilsApi = {
+  pickFolder: () => ipcRenderer.invoke(IpcChannels.PickFolder),
+  getRootFolder: () => ipcRenderer.invoke(IpcChannels.GetRootFolder),
+  setRootFolder: (path: string) => ipcRenderer.invoke(IpcChannels.SetRootFolder, path)
+}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -10,7 +14,7 @@ const api = {}
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
+    contextBridge.exposeInMainWorld('djUtils', djUtils)
   } catch (error) {
     console.error(error)
   }
@@ -18,5 +22,5 @@ if (process.contextIsolated) {
   // @ts-ignore (define in dts)
   window.electron = electronAPI
   // @ts-ignore (define in dts)
-  window.api = api
+  window.djUtils = djUtils
 }
