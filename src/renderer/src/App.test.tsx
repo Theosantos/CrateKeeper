@@ -40,6 +40,22 @@ describe('App', () => {
     expect(screen.queryByRole('heading', { name: /^convertir$/i, level: 2 })).not.toBeInTheDocument()
   })
 
+  it('pins the first and last path segments so they survive truncation', () => {
+    useAppStore.setState({ rootFolder: '/Users/theo/Documents/Music/Library' })
+    render(<App />)
+
+    const value = document.querySelector('.folder-picker__path-value')
+    expect(value).not.toBeNull()
+    expect(value?.getAttribute('title')).toBe('/Users/theo/Documents/Music/Library')
+
+    const head = value?.querySelector('.folder-picker__path-head')
+    const middle = value?.querySelector('.folder-picker__path-middle')
+    const tail = value?.querySelector('.folder-picker__path-tail')
+    expect(head?.textContent).toBe('/Users')
+    expect(middle?.textContent).toBe('/theo/Documents/Music')
+    expect(tail?.textContent).toBe('/Library')
+  })
+
   it('switches the visible view to Tagger when the Tagger nav button is clicked', async () => {
     render(<App />)
 
