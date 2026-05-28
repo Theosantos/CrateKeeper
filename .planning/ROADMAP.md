@@ -25,7 +25,7 @@
   2. User clicks a folder-picker control and selects a directory from their filesystem
   3. User quits and relaunches the app — the previously selected folder is still shown without re-selecting
 **Plans**: 2 plans
-- [ ] 01-01-PLAN.md — Scaffold + secure window + better-sqlite3 settings store + folder-pick/settings IPC bridge + Vitest infra (FOUND-02, FOUND-03)
+- [x] 01-01-PLAN.md — Scaffold + secure window + better-sqlite3 settings store + folder-pick/settings IPC bridge + Vitest infra (FOUND-02, FOUND-03)
 - [ ] 01-02-PLAN.md — Renderer vertical slice: three-tool nav, Zustand store, folder picker, mount-time persistence (FOUND-01, FOUND-02, FOUND-03)
 
 ### Phase 2: File Scanning & Library View
@@ -97,7 +97,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/2 | Not started | - |
+| 1. Foundation | 1/2 | In progress | - |
 | 2. File Scanning & Library View | 0/? | Not started | - |
 | 3. FFmpeg Conversion Pipeline | 0/? | Not started | - |
 | 4. Tagger Core | 0/? | Not started | - |
