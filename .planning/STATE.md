@@ -1,7 +1,7 @@
 # Project State — DJ Utils
 
 ## Current Status
-Phase: Not started
+Phase: 1 — Foundation (Planned — ready to execute)
 Last updated: 2026-05-28
 
 ## Project Reference
@@ -16,6 +16,9 @@ See: .planning/PROJECT.md (updated 2026-05-28)
 ## Accumulated Context
 
 ### Key Decisions
+- Stack pinned (verified 2025): electron-vite 5 + Vite 7 (NOT 8 — peer conflict), React 19, better-sqlite3 12, electron-builder 26 — use @quick-start/electron react-ts scaffold
+- Single persistence layer: better-sqlite3 settings key/value table (NOT electron-store) — tagger queue needs SQLite anyway
+- State-based 3-tool navigation via Zustand (NOT React Router)
 - ID3v2.3 (not v2.4) required for Rekordbox compatibility — validate before Phase 5
 - FFmpeg binary path must be handled via asarUnpack from Phase 1 onwards
 - Strict Electron main/renderer split — all Node/FFmpeg calls go through IPC bridge via contextBridge preload
