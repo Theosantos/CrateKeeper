@@ -1,18 +1,35 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: unknown
+last_updated: "2026-05-29T07:29:49.182Z"
+progress:
+  total_phases: 6
+  completed_phases: 1
+  total_plans: 5
+  completed_plans: 2
+  percent: 17
+---
+
 # Project State — DJ Utils
 
 ## Current Status
+
 Phase: 1 — Foundation (Complete)
 Last updated: 2026-05-29
 
 ## Project Reference
+
 See: .planning/PROJECT.md (updated 2026-05-28)
 
 **Core value:** Permettre à un DJ de passer de "bibliothèque en désordre" à "collection propre et taguée" sans quitter une seule interface.
-**Current focus:** Phase 2 — File Scanning & Library View (next)
+**Current focus:** Phase 02 — scanning
 
 ## Phase History
 
 ### Phase 1 — Foundation (Complete, 2026-05-29)
+
 Walking skeleton end-to-end: renderer ↔ window.djUtils ↔ main ↔ better-sqlite3, with persistent root-folder selection.
 
 - **Plan 01-01** (2026-05-28, ~8 min): Scaffold + secure window + better-sqlite3 settings store + folder-pick/settings IPC bridge + Vitest infra. 5 commits (1 chore + 2 TDD RED/GREEN pairs). 7 tests green, build green. See `.planning/phases/01-foundation/01-01-SUMMARY.md`.
@@ -21,6 +38,7 @@ Walking skeleton end-to-end: renderer ↔ window.djUtils ↔ main ↔ better-sql
 ## Accumulated Context
 
 ### Key Decisions
+
 - Plan 01-01: Electron 39 (scaffold-pinned, not 42) accepted; better-sqlite3 12 prebuilds cover both ABIs
 - Plan 01-01: Dual native-module ABI strategy via npm scripts (pretest→Node, predev/prebuild→Electron) so Vitest and Electron runtime coexist
 - Plan 01-01: Shared `IpcChannels` const in src/shared/ipc-types.ts is the single source of truth for IPC channel names (main + preload import the same constants)
@@ -38,12 +56,15 @@ Walking skeleton end-to-end: renderer ↔ window.djUtils ↔ main ↔ better-sql
 - Plan 01-02: Editorial dark-studio direction with :root design tokens — explicit anti-template baseline for the whole renderer.
 
 ### Known Risks
+
 - FFmpeg asarUnpack misconfiguration can silently break conversion on packaged builds — test packaged build early
 - ID3v2.4 writes will appear broken in Rekordbox — enforce v2.3 at the tag-writing layer
 - Running `npm test` rebuilds better-sqlite3 for Node ABI (137); the next `npm run dev` triggers `predev` → `electron-rebuild` to swap back to Electron ABI (140). If a dev launch ever hits NODE_MODULE_VERSION mismatch, run `npx electron-rebuild -f -w better-sqlite3`.
 
 ### Todos
+
 (none yet)
 
 ### Blockers
+
 (none — Phase 1 checkpoint approved by user 2026-05-29)

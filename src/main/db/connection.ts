@@ -2,9 +2,11 @@ import Database from 'better-sqlite3'
 import { app } from 'electron'
 import path from 'node:path'
 import { initSettingsSchema, createSettingsRepo, type SettingsRepo } from './settingsRepo'
+import { initScanSchema, createScanRepo, type ScanRepo } from '../scan/scanRepo'
 
 let dbInstance: Database.Database | null = null
 let settingsRepoInstance: SettingsRepo | null = null
+let scanRepoInstance: ScanRepo | null = null
 
 /**
  * Open (or return the cached) better-sqlite3 connection at userData/dj-utils.db.
@@ -21,6 +23,7 @@ export function openDb(): Database.Database {
   const db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
   initSettingsSchema(db)
+  initScanSchema(db)
 
   dbInstance = db
   return db
@@ -37,10 +40,22 @@ export function getSettingsRepo(): SettingsRepo {
   return settingsRepoInstance
 }
 
+/**
+ * Get the default ScanRepo bound to the userData database.
+ * Tests should construct their own repo via createScanRepo(testDb).
+ */
+export function getScanRepo(): ScanRepo {
+  if (!scanRepoInstance) {
+    scanRepoInstance = createScanRepo(openDb())
+  }
+  return scanRepoInstance
+}
+
 export function closeDb(): void {
   if (dbInstance) {
     dbInstance.close()
     dbInstance = null
     settingsRepoInstance = null
+    scanRepoInstance = null
   }
 }
