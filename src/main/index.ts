@@ -1,13 +1,18 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
+import { Worker } from 'node:worker_threads'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerDialogHandlers } from './ipc/dialog'
 import { registerSettingsHandlers } from './ipc/settings'
+import { registerScanHandlers, makeRendererSender } from './ipc/scan'
+import { createScanController } from './scan/controller'
+import { getScanRepo, getSettingsRepo } from './db/connection'
 
-function createWindow(): void {
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
+let mainWindow: BrowserWindow | null = null
+
+function createWindow(): BrowserWindow {
+  const win = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
@@ -21,11 +26,11 @@ function createWindow(): void {
     }
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+  win.on('ready-to-show', () => {
+    win.show()
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
@@ -33,10 +38,12 @@ function createWindow(): void {
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    win.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  return win
 }
 
 // This method will be called when Electron has finished
@@ -57,12 +64,32 @@ app.whenReady().then(() => {
   registerDialogHandlers()
   registerSettingsHandlers()
 
-  createWindow()
+  // Phase 2: scan backbone. The worker is bundled by electron-vite to
+  // out/main/workers/scanWorker.js (RESEARCH Pitfall 1 — see electron.vite.config.ts).
+  const send = makeRendererSender(() => mainWindow?.webContents ?? null)
+  const scanController = createScanController({
+    spawnWorker: (folder, scanId) =>
+      new Worker(join(__dirname, 'workers/scanWorker.js'), {
+        workerData: { folder, scanId }
+      }),
+    repo: getScanRepo(),
+    send
+  })
+  registerScanHandlers({
+    ipcMain,
+    controller: scanController,
+    settingsRepo: getSettingsRepo(),
+    getSender: () => mainWindow?.webContents ?? null
+  })
+
+  mainWindow = createWindow()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      mainWindow = createWindow()
+    }
   })
 })
 
