@@ -26,10 +26,15 @@ type ScanState = {
   totalFiles: number | null
   durationMs: number | null
   error: string | null
+  /** True while a CSV export is in flight; guards re-entry (defence in depth). */
+  exporting: boolean
+  /** Last successfully-exported CSV path (renderer shows it as a toast). */
+  lastExportPath: string | null
   /** Private subscription handle — never read from components. */
   unsubscribe: (() => void) | null
   start: (folder: string) => Promise<void>
   cancel: () => Promise<void>
+  exportCsv: () => Promise<string | null>
   reset: () => void
 }
 
@@ -40,6 +45,8 @@ const INITIAL = {
   totalFiles: null,
   durationMs: null,
   error: null,
+  exporting: false,
+  lastExportPath: null as string | null,
   unsubscribe: null as (() => void) | null
 }
 
@@ -110,6 +117,24 @@ export const useScanStore = create<ScanState>((set, get) => {
       if (id === null) return
       await window.djUtils.scan.cancel(id)
       // Status transition is driven by the 'cancelled' event, not here.
+    },
+
+    exportCsv: async (): Promise<string | null> => {
+      // Defence in depth: the button is also disabled, but the store guards too.
+      const s = get()
+      if (s.scanId === null || s.status !== 'done' || s.exporting) {
+        return null
+      }
+      set({ exporting: true })
+      try {
+        const exportedPath = await window.djUtils.scan.exportCsv(s.scanId)
+        if (exportedPath !== null) {
+          set({ lastExportPath: exportedPath })
+        }
+        return exportedPath
+      } finally {
+        set({ exporting: false })
+      }
     },
 
     reset: (): void => {

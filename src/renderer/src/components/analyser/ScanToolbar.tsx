@@ -1,13 +1,19 @@
+import { useEffect, useState } from 'react'
 import { useAppStore } from '../../store/useAppStore'
 import { useScanStore } from '../../store/useScanStore'
 
 /**
- * Scanner / Stop controls + live progress strip.
+ * Scanner / Stop / Exporter CSV controls + live progress strip.
  *
  * Reads rootFolder from useAppStore (NOT directly from window.djUtils.getRootFolder
  * — Threat T-2-01 defence in depth: the store always passes the persisted
  * allowlisted folder, never a user-typed path).
+ *
+ * Exporter CSV is gated on status === 'done' AND !exporting; the store also
+ * guards on the same conditions (defence in depth).
  */
+
+const EXPORT_TOAST_MS = 4000
 
 export function ScanToolbar(): React.JSX.Element {
   const rootFolder = useAppStore((s) => s.rootFolder)
@@ -16,11 +22,16 @@ export function ScanToolbar(): React.JSX.Element {
   const totalFiles = useScanStore((s) => s.totalFiles)
   const durationMs = useScanStore((s) => s.durationMs)
   const error = useScanStore((s) => s.error)
+  const exporting = useScanStore((s) => s.exporting)
   const start = useScanStore((s) => s.start)
   const cancel = useScanStore((s) => s.cancel)
+  const exportCsv = useScanStore((s) => s.exportCsv)
+
+  const [recentExportPath, setRecentExportPath] = useState<string | null>(null)
 
   const isRunning = status === 'running'
   const canStart = rootFolder !== null && !isRunning
+  const canExport = status === 'done' && !exporting
 
   function handleStart(): void {
     if (rootFolder === null) return
@@ -30,6 +41,21 @@ export function ScanToolbar(): React.JSX.Element {
   function handleStop(): void {
     void cancel()
   }
+
+  async function handleExport(): Promise<void> {
+    const exportedPath = await exportCsv()
+    if (exportedPath !== null) {
+      setRecentExportPath(exportedPath)
+    }
+  }
+
+  // Hide the toast after a short delay. Pure CSS opacity transitions handle
+  // the visual fade (no layout-bound animation — web/performance.md).
+  useEffect(() => {
+    if (recentExportPath === null) return
+    const id = window.setTimeout(() => setRecentExportPath(null), EXPORT_TOAST_MS)
+    return () => window.clearTimeout(id)
+  }, [recentExportPath])
 
   const progressText = (() => {
     if (status === 'error') return error ?? 'Erreur inconnue'
@@ -61,6 +87,16 @@ export function ScanToolbar(): React.JSX.Element {
             Stop
           </button>
         ) : null}
+        <button
+          type="button"
+          className="scan-toolbar__button scan-toolbar__button--export"
+          onClick={() => {
+            void handleExport()
+          }}
+          disabled={!canExport}
+        >
+          Exporter CSV
+        </button>
         {rootFolder === null ? (
           <p className="scan-toolbar__hint">
             Choisis un dossier racine pour lancer un scan.
@@ -73,6 +109,15 @@ export function ScanToolbar(): React.JSX.Element {
       >
         {progressText}
       </output>
+      {recentExportPath !== null ? (
+        <p
+          className="scan-toolbar__export-notice"
+          role="status"
+          aria-live="polite"
+        >
+          Exporté : {recentExportPath}
+        </p>
+      ) : null}
     </div>
   )
 }
