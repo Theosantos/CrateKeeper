@@ -7,7 +7,7 @@
 ## Phases
 
 - [x] **Phase 1: Foundation** - App shell, IPC bridge, folder picker, SQLite persistence
-- [ ] **Phase 2: File Scanning & Library View** - Chunked audio scan, metadata display, tag status indicators, CSV export
+- [x] **Phase 2: File Scanning & Library View** - Chunked audio scan, metadata display, tag status indicators, CSV export (completed 2026-05-29)
 - [ ] **Phase 3: FFmpeg Conversion Pipeline** - Batch conversion, progress tracking, resume, tag preservation
 - [ ] **Phase 4: Tagger Core** - Swipe-style tagging queue, audio previews, inline editing, session resume
 - [ ] **Phase 5: Tag Writing & Rekordbox Compatibility** - Atomic ID3v2.3/MP4 writes, Rekordbox-compatible fields
@@ -41,7 +41,7 @@
 **Plans**: 3 plans
 - [x] 02-01-PLAN.md — Main backbone: scan IPC namespace, scanRepo + worker_threads + ScanController, electron.vite worker entry (SCAN-01/02/03/05)
 - [x] 02-02-PLAN.md — Renderer slice: useScanStore + ScanToolbar + VirtualizedFileTable + TagBadge (SCAN-01/02/03/05)
-- [ ] 02-03-PLAN.md — CSV export: streamed csv-stringify via showSaveDialog + toolbar button (SCAN-04)
+- [x] 02-03-PLAN.md — CSV export: streamed csv-stringify via showSaveDialog + toolbar button (SCAN-04)
 **UI hint**: yes
 
 ### Phase 3: FFmpeg Conversion Pipeline
@@ -101,7 +101,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete | 2026-05-29 |
-| 2. File Scanning & Library View | 2/3 | In Progress|  |
+| 2. File Scanning & Library View | 3/3 | Complete   | 2026-05-29 |
 | 3. FFmpeg Conversion Pipeline | 0/? | Not started | - |
 | 4. Tagger Core | 0/? | Not started | - |
 | 5. Tag Writing & Rekordbox Compatibility | 0/? | Not started | - |
