@@ -7,9 +7,9 @@
 
 ### Foundation
 
-- [ ] **FOUND-01**: L'app démarre et affiche une interface de navigation entre les trois outils (Analyser, Convertir, Tagger)
-- [ ] **FOUND-02**: L'utilisateur peut sélectionner un dossier racine depuis l'interface
-- [ ] **FOUND-03**: L'app persiste le dossier sélectionné entre les sessions
+- [x] **FOUND-01**: L'app démarre et affiche une interface de navigation entre les trois outils (Analyser, Convertir, Tagger)
+- [x] **FOUND-02**: L'utilisateur peut sélectionner un dossier racine depuis l'interface
+- [x] **FOUND-03**: L'app persiste le dossier sélectionné entre les sessions
 
 ### Analyse
 
@@ -87,9 +87,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 1 | Pending |
-| FOUND-02 | Phase 1 | Pending |
-| FOUND-03 | Phase 1 | Pending |
+| FOUND-01 | Phase 1 | Complete |
+| FOUND-02 | Phase 1 | Complete |
+| FOUND-03 | Phase 1 | Complete |
 | SCAN-01 | Phase 2 | Pending |
 | SCAN-02 | Phase 2 | Pending |
 | SCAN-03 | Phase 2 | Pending |

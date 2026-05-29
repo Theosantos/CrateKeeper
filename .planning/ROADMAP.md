@@ -6,7 +6,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: Foundation** - App shell, IPC bridge, folder picker, SQLite persistence
+- [x] **Phase 1: Foundation** - App shell, IPC bridge, folder picker, SQLite persistence
 - [ ] **Phase 2: File Scanning & Library View** - Chunked audio scan, metadata display, tag status indicators, CSV export
 - [ ] **Phase 3: FFmpeg Conversion Pipeline** - Batch conversion, progress tracking, resume, tag preservation
 - [ ] **Phase 4: Tagger Core** - Swipe-style tagging queue, audio previews, inline editing, session resume
@@ -26,7 +26,7 @@
   3. User quits and relaunches the app — the previously selected folder is still shown without re-selecting
 **Plans**: 2 plans
 - [x] 01-01-PLAN.md — Scaffold + secure window + better-sqlite3 settings store + folder-pick/settings IPC bridge + Vitest infra (FOUND-02, FOUND-03)
-- [ ] 01-02-PLAN.md — Renderer vertical slice: three-tool nav, Zustand store, folder picker, mount-time persistence (FOUND-01, FOUND-02, FOUND-03)
+- [x] 01-02-PLAN.md — Renderer vertical slice: three-tool nav, Zustand store, folder picker, mount-time persistence (FOUND-01, FOUND-02, FOUND-03)
 
 ### Phase 2: File Scanning & Library View
 **Goal:** Users can scan a folder and see every audio file with full technical metadata and tag completeness indicators, without the UI freezing.
@@ -97,7 +97,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 1/2 | In progress | - |
+| 1. Foundation | 2/2 | Complete | 2026-05-29 |
 | 2. File Scanning & Library View | 0/? | Not started | - |
 | 3. FFmpeg Conversion Pipeline | 0/? | Not started | - |
 | 4. Tagger Core | 0/? | Not started | - |
