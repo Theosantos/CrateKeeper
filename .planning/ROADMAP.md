@@ -40,7 +40,7 @@
   4. User clicks "Export CSV" and receives a file containing all scanned metadata
 **Plans**: 3 plans
 - [x] 02-01-PLAN.md — Main backbone: scan IPC namespace, scanRepo + worker_threads + ScanController, electron.vite worker entry (SCAN-01/02/03/05)
-- [ ] 02-02-PLAN.md — Renderer slice: useScanStore + ScanToolbar + VirtualizedFileTable + TagBadge (SCAN-01/02/03/05)
+- [x] 02-02-PLAN.md — Renderer slice: useScanStore + ScanToolbar + VirtualizedFileTable + TagBadge (SCAN-01/02/03/05)
 - [ ] 02-03-PLAN.md — CSV export: streamed csv-stringify via showSaveDialog + toolbar button (SCAN-04)
 **UI hint**: yes
 
@@ -101,7 +101,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete | 2026-05-29 |
-| 2. File Scanning & Library View | 1/3 | In Progress|  |
+| 2. File Scanning & Library View | 2/3 | In Progress|  |
 | 3. FFmpeg Conversion Pipeline | 0/? | Not started | - |
 | 4. Tagger Core | 0/? | Not started | - |
 | 5. Tag Writing & Rekordbox Compatibility | 0/? | Not started | - |
