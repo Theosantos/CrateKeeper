@@ -212,6 +212,8 @@ describe('scan IPC handlers', () => {
         settingsRepo: makeDeps().settingsRepo,
         scanRepo: makeExportDeps().deps.repo,
         downloadsPath: '/Users/test/Downloads',
+        dialogApi: { showSaveDialog: vi.fn() },
+        streamCsvFn: vi.fn(),
         getSender: () => null
       })
       const channels = handleCalls.map((c) => c.channel)

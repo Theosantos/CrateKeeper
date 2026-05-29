@@ -1,7 +1,10 @@
 import type { IpcMain, IpcMainInvokeEvent, WebContents } from 'electron'
+import path from 'node:path'
 import { IpcChannels, type ScanEvent } from '../../shared/ipc-types'
 import type { ScanController } from '../scan/controller'
 import type { SettingsRepo } from '../db/settingsRepo'
+import type { ScanRepo } from '../scan/scanRepo'
+import { streamCsv } from '../scan/csvExport'
 
 const ROOT_FOLDER_KEY = 'rootFolder'
 
@@ -42,19 +45,82 @@ export async function scanCancelHandler(deps: ScanHandlerDeps, scanId: unknown):
 }
 
 /**
- * scan:export-csv stub.
- * Plan 02-03 replaces this with the streaming CSV implementation.
+ * Pure: formats a Date as `dj-utils-scan-YYYYMMDD-HHmm.csv` using UTC components
+ * so the output is deterministic across host timezones (and trivially testable).
+ */
+export function defaultCsvFilename(now: Date = new Date()): string {
+  const pad = (n: number): string => n.toString().padStart(2, '0')
+  const yyyy = now.getUTCFullYear().toString()
+  const mm = pad(now.getUTCMonth() + 1)
+  const dd = pad(now.getUTCDate())
+  const hh = pad(now.getUTCHours())
+  const mi = pad(now.getUTCMinutes())
+  return `dj-utils-scan-${yyyy}${mm}${dd}-${hh}${mi}.csv`
+}
+
+/** Minimal subset of electron.dialog used by scanExportCsvHandler. */
+export interface SaveDialogApi {
+  showSaveDialog(options: {
+    defaultPath: string
+    filters: Array<{ name: string; extensions: string[] }>
+  }): Promise<{ canceled: boolean; filePath?: string }>
+}
+
+export interface ScanExportCsvDeps {
+  repo: ScanRepo
+  dialogApi: SaveDialogApi
+  streamCsvFn: typeof streamCsv
+  downloadsPath: string
+  now?: () => Date
+}
+
+/**
+ * scan:export-csv handler.
+ *
+ * Flow: V5 input check → scan-existence fast-fail (no dialog if ghost id) →
+ * showSaveDialog with a downloads-derived default path → on confirm, stream
+ * scanRepo.iterateFiles(scanId) through streamCsv into the chosen path.
+ *
+ * Security (T-2-01): the save path is composed exclusively from the
+ * dialog-derived `filePath` and (for the default suggestion) from
+ * `downloadsPath` + `defaultCsvFilename(now)`. The renderer-supplied scanId
+ * never participates in path construction.
  */
 export async function scanExportCsvHandler(
-  _deps: ScanHandlerDeps,
-  _scanId: unknown
+  deps: ScanExportCsvDeps,
+  scanId: unknown
 ): Promise<string | null> {
-  throw new Error('scan:export-csv not implemented yet — Plan 02-03')
+  if (typeof scanId !== 'string') {
+    throw new TypeError(`${IpcChannels.ScanExportCsv}: scanId must be a string`)
+  }
+  const scan = deps.repo.getScan(scanId)
+  if (scan === null) {
+    throw new Error(`${IpcChannels.ScanExportCsv}: no scan found for id`)
+  }
+  const now = deps.now ? deps.now() : new Date()
+  const defaultPath = path.join(deps.downloadsPath, defaultCsvFilename(now))
+  const result = await deps.dialogApi.showSaveDialog({
+    defaultPath,
+    filters: [{ name: 'CSV', extensions: ['csv'] }]
+  })
+  if (result.canceled || !result.filePath) {
+    return null
+  }
+  await deps.streamCsvFn(deps.repo.iterateFiles(scanId), result.filePath)
+  return result.filePath
 }
 
 export interface RegisterScanHandlersOpts extends ScanHandlerDeps {
   ipcMain: IpcMain
   getSender: () => WebContents | null
+  /** Required for the export-csv handler — the live ScanRepo (already wired in main). */
+  scanRepo: ScanRepo
+  /** Override-able for tests; defaults to app.getPath('downloads') in production. */
+  downloadsPath?: string
+  /** Override-able for tests; defaults to electron.dialog in production. */
+  dialogApi?: SaveDialogApi
+  /** Override-able for tests; defaults to the real streamCsv. */
+  streamCsvFn?: typeof streamCsv
 }
 
 /**
@@ -64,6 +130,23 @@ export interface RegisterScanHandlersOpts extends ScanHandlerDeps {
  */
 export function registerScanHandlers(opts: RegisterScanHandlersOpts): void {
   const deps: ScanHandlerDeps = { controller: opts.controller, settingsRepo: opts.settingsRepo }
+  // Defer electron module access to registration time so unit tests can import
+  // the pure handlers without pulling in the electron runtime binary.
+  let resolvedDialog = opts.dialogApi
+  let resolvedDownloads = opts.downloadsPath
+  if (resolvedDialog === undefined || resolvedDownloads === undefined) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const electron = require('electron') as typeof import('electron')
+    resolvedDialog = resolvedDialog ?? electron.dialog
+    resolvedDownloads = resolvedDownloads ?? electron.app.getPath('downloads')
+  }
+  const exportDeps: ScanExportCsvDeps = {
+    repo: opts.scanRepo,
+    dialogApi: resolvedDialog,
+    streamCsvFn: opts.streamCsvFn ?? streamCsv,
+    downloadsPath: resolvedDownloads,
+    now: () => new Date()
+  }
   opts.ipcMain.handle(IpcChannels.ScanStart, (_e: IpcMainInvokeEvent, folder: unknown) =>
     scanStartHandler(deps, folder)
   )
@@ -71,7 +154,7 @@ export function registerScanHandlers(opts: RegisterScanHandlersOpts): void {
     scanCancelHandler(deps, scanId)
   )
   opts.ipcMain.handle(IpcChannels.ScanExportCsv, (_e: IpcMainInvokeEvent, scanId: unknown) =>
-    scanExportCsvHandler(deps, scanId)
+    scanExportCsvHandler(exportDeps, scanId)
   )
 }
 

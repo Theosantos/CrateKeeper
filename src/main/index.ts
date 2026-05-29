@@ -79,6 +79,7 @@ app.whenReady().then(() => {
     ipcMain,
     controller: scanController,
     settingsRepo: getSettingsRepo(),
+    scanRepo: getScanRepo(),
     getSender: () => mainWindow?.webContents ?? null
   })
 
