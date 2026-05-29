@@ -74,7 +74,9 @@ describe('useScanStore', () => {
       rows: [],
       totalFiles: null,
       durationMs: null,
-      error: null
+      error: null,
+      exporting: false,
+      lastExportPath: null
     })
   })
 
@@ -185,6 +187,64 @@ describe('useScanStore', () => {
     expect(secondApi.start).toHaveBeenCalledWith('/music')
     expect(useScanStore.getState().scanId).toBe('scan-B')
     expect(useScanStore.getState().rows).toEqual([])
+  })
+
+  describe('exportCsv', () => {
+    it('returns null when scanId is null (no bridge call)', async () => {
+      const api = installScanMock('scan-A')
+      // store is reset to idle in beforeEach — no scanId
+      const result = await useScanStore.getState().exportCsv()
+      expect(result).toBeNull()
+      expect(api.exportCsv).not.toHaveBeenCalled()
+    })
+
+    it('returns null when status !== "done" (defence in depth)', async () => {
+      const api = installScanMock('scan-A')
+      await useScanStore.getState().start('/music')
+      // status === 'running'
+      const result = await useScanStore.getState().exportCsv()
+      expect(result).toBeNull()
+      expect(api.exportCsv).not.toHaveBeenCalled()
+    })
+
+    it('calls window.djUtils.scan.exportCsv(scanId) and returns the path on success', async () => {
+      const api = installScanMock('scan-A')
+      api.exportCsv.mockResolvedValue('/tmp/dj-utils.csv')
+      await useScanStore.getState().start('/music')
+      api.emit({ type: 'done', scanId: 'scan-A', totalFiles: 3, durationMs: 100 })
+
+      const result = await useScanStore.getState().exportCsv()
+      expect(api.exportCsv).toHaveBeenCalledWith('scan-A')
+      expect(result).toBe('/tmp/dj-utils.csv')
+      expect(useScanStore.getState().lastExportPath).toBe('/tmp/dj-utils.csv')
+      // exporting flag must be cleared after the promise resolves
+      expect(useScanStore.getState().exporting).toBe(false)
+    })
+
+    it('returns null and does not double-fire while another export is in flight', async () => {
+      const api = installScanMock('scan-A')
+      let resolveFirst!: (v: string | null) => void
+      api.exportCsv.mockImplementationOnce(
+        () =>
+          new Promise<string | null>((res) => {
+            resolveFirst = res
+          })
+      )
+      await useScanStore.getState().start('/music')
+      api.emit({ type: 'done', scanId: 'scan-A', totalFiles: 3, durationMs: 100 })
+
+      const first = useScanStore.getState().exportCsv()
+      // While the first is in-flight, exporting=true and a second call must no-op
+      expect(useScanStore.getState().exporting).toBe(true)
+      const second = await useScanStore.getState().exportCsv()
+      expect(second).toBeNull()
+      expect(api.exportCsv).toHaveBeenCalledTimes(1)
+
+      resolveFirst('/tmp/x.csv')
+      const firstResult = await first
+      expect(firstResult).toBe('/tmp/x.csv')
+      expect(useScanStore.getState().exporting).toBe(false)
+    })
   })
 
   it('ignores rows events from a foreign scanId', async () => {
