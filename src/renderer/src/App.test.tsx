@@ -24,6 +24,7 @@ function installDjUtilsMock(): void {
         .fn<DjUtilsApi['conversion']['listResumable']>()
         .mockResolvedValue([]),
       resume: vi.fn<DjUtilsApi['conversion']['resume']>().mockResolvedValue(undefined),
+      discard: vi.fn<DjUtilsApi['conversion']['discard']>().mockResolvedValue(undefined),
       onEvent: vi.fn<DjUtilsApi['conversion']['onEvent']>().mockReturnValue(() => {})
     }
   }

@@ -95,23 +95,38 @@ app.whenReady().then(() => {
   // out/main/workers/conversionWorker.js (Pitfall 1 carry-forward). The
   // ffmpeg-static binary path is resolved once at controller construction
   // and rewritten from app.asar → app.asar.unpacked in packaged builds.
+  //
+  // Construction order (Pitfall 9): the conversion controller must exist
+  // BEFORE the boot-time stale-heartbeat sweep, and the sweep must run
+  // BEFORE createWindow() so the renderer never observes a 'running' row
+  // that is actually crashed.
   const conversionSend = makeConversionSender(
     () => mainWindow?.webContents ?? null
   )
+  const conversionRepo = getConversionRepo()
   const conversionController = createConversionController({
     spawnWorker: (data) =>
       new Worker(join(__dirname, 'workers/conversionWorker.js'), {
         workerData: data
       }),
-    repo: getConversionRepo(),
+    repo: conversionRepo,
     send: conversionSend,
     resolveFfmpegPath,
     getFfmpegRawPath: () => ffmpegStatic,
     isPackaged: app.isPackaged
   })
+
+  // Pitfall 9: boot-time crash detection. Runs ONCE before createWindow().
+  // Threshold = 30s (Pitfall 6: safe given default heartbeat = 5s).
+  conversionController.markStaleAsCrashed({
+    thresholdMs: 30_000,
+    now: Date.now()
+  })
+
   registerConversionHandlers({
     ipcMain,
     controller: conversionController,
+    repo: conversionRepo,
     settingsRepo: getSettingsRepo(),
     getSender: () => mainWindow?.webContents ?? null
   })

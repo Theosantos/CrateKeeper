@@ -3,6 +3,7 @@ import path from 'node:path'
 import { IpcChannels, type ConversionEvent, type ResumableBatch } from '../../shared/ipc-types'
 import type { ConversionController } from '../conversion/controller'
 import { BatchAlreadyActive } from '../conversion/controller'
+import type { ConversionRepo } from '../conversion/conversionRepo'
 import type { SettingsRepo } from '../db/settingsRepo'
 import { PRESETS } from '../conversion/presets'
 import { AUDIO_EXTS } from '../workers/scanCore'
@@ -162,29 +163,70 @@ export async function conversionCancelHandler(
 }
 
 /**
- * conversion:list-resumable handler — STUB returning [] for Plan 03-01.
- * Plan 03-03 replaces this with `deps.controller.listResumable()` once the
- * boot-time `markStaleAsCrashed` + UI banner is wired.
+ * conversion:list-resumable handler — returns crashed batches surfaced by the
+ * boot-time sweep (Plan 03-03). Cancelled / done / running batches are
+ * intentionally excluded by the repo SQL (LOCKED: cancelled NOT resumable).
  */
-export async function conversionListResumableHandler(): Promise<ResumableBatch[]> {
-  return []
+export async function conversionListResumableHandler(deps: {
+  repo: ConversionRepo
+}): Promise<ResumableBatch[]> {
+  return deps.repo.findResumable()
 }
 
 /**
- * conversion:resume handler — STUB throwing for Plan 03-01.
- * Plan 03-03 replaces this with `deps.controller.resume(id)`.
+ * conversion:resume handler — Plan 03-03.
+ *
+ * V5: validates `typeof id === 'string'` (T-3-13). Maps controller exceptions
+ * to French user-facing messages:
+ *   - BatchAlreadyActive → "Une conversion est déjà en cours"
+ *   - 'Batch not resumable' → "Cette conversion ne peut pas être reprise"
  */
-export async function conversionResumeHandler(_id: unknown): Promise<void> {
-  throw new Error('conversion:resume not implemented in Plan 03-01; see Plan 03-03')
+export async function conversionResumeHandler(
+  deps: { controller: ConversionController },
+  id: unknown
+): Promise<void> {
+  if (typeof id !== 'string') {
+    throw new TypeError(`${IpcChannels.ConversionResume}: conversionId must be a string`)
+  }
+  try {
+    await deps.controller.resume(id)
+  } catch (err) {
+    if (err instanceof BatchAlreadyActive) {
+      throw new Error('Une conversion est déjà en cours')
+    }
+    if (err instanceof Error && err.message === 'Batch not resumable') {
+      throw new Error('Cette conversion ne peut pas être reprise')
+    }
+    throw err
+  }
+}
+
+/**
+ * conversion:discard handler — Plan 03-03 "Ignorer (supprimer)" path.
+ *
+ * V5: validates `typeof id === 'string'` (T-3-14). Delegates to
+ * repo.deleteConversion which uses a prepared DELETE statement; FK CASCADE
+ * drops the conversion_files rows. Idempotent — discarding a non-existent
+ * id is a no-op.
+ */
+export async function conversionDiscardHandler(
+  deps: { repo: ConversionRepo },
+  id: unknown
+): Promise<void> {
+  if (typeof id !== 'string') {
+    throw new TypeError(`${IpcChannels.ConversionDiscard}: conversionId must be a string`)
+  }
+  deps.repo.deleteConversion(id)
 }
 
 export interface RegisterConversionHandlersOpts extends ConversionStartHandlerDeps {
   ipcMain: IpcMain
+  repo: ConversionRepo
   getSender: () => WebContents | null
 }
 
 /**
- * Register the four conversion invoke channels on ipcMain. The
+ * Register the five conversion invoke channels on ipcMain. The
  * conversion:event push channel is forwarded by the controller's `send` dep
  * (not registered here — ipcMain.handle is renderer→main only).
  */
@@ -194,6 +236,8 @@ export function registerConversionHandlers(opts: RegisterConversionHandlersOpts)
     settingsRepo: opts.settingsRepo
   }
   const cancelDeps: ConversionCancelHandlerDeps = { controller: opts.controller }
+  const resumeDeps = { controller: opts.controller }
+  const repoDeps = { repo: opts.repo }
 
   opts.ipcMain.handle(
     IpcChannels.ConversionStart,
@@ -206,11 +250,15 @@ export function registerConversionHandlers(opts: RegisterConversionHandlersOpts)
       conversionCancelHandler(cancelDeps, id)
   )
   opts.ipcMain.handle(IpcChannels.ConversionListResumable, () =>
-    conversionListResumableHandler()
+    conversionListResumableHandler(repoDeps)
   )
   opts.ipcMain.handle(
     IpcChannels.ConversionResume,
-    (_e: IpcMainInvokeEvent, id: unknown) => conversionResumeHandler(id)
+    (_e: IpcMainInvokeEvent, id: unknown) => conversionResumeHandler(resumeDeps, id)
+  )
+  opts.ipcMain.handle(
+    IpcChannels.ConversionDiscard,
+    (_e: IpcMainInvokeEvent, id: unknown) => conversionDiscardHandler(repoDeps, id)
   )
 }
 

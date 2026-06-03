@@ -24,6 +24,7 @@ function installDjUtilsMock(): void {
       cancel: vi.fn().mockResolvedValue(undefined),
       listResumable: vi.fn().mockResolvedValue([]),
       resume: vi.fn().mockResolvedValue(undefined),
+      discard: vi.fn().mockResolvedValue(undefined),
       onEvent: vi.fn().mockReturnValue(() => {})
     }
   }
