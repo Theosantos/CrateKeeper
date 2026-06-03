@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import type {
   ConversionEvent,
   ConversionFileStatus,
-  Preset
+  Preset,
+  ResumableBatch
 } from '../../../shared/ipc-types'
 
 /**
@@ -39,6 +40,11 @@ export type ConversionState = {
   selectedPreset: Preset
   customPreset: Preset | null
   error: string | null
+  /**
+   * Crashed batches eligible for resume — seeded by checkResumable() on
+   * ConvertirView mount (LOCKED Pitfall 9: one-shot, not polling).
+   */
+  resumableBatches: ResumableBatch[]
 
   seedFilePaths: (paths: string[]) => void
   setPreset: (preset: Preset) => void
@@ -47,6 +53,31 @@ export type ConversionState = {
   cancelBatch: () => Promise<void>
   subscribeEvents: () => () => void
   reset: () => void
+  /**
+   * One-shot fetch of repo.findResumable() via the conversion IPC bridge.
+   * Idempotent — replaces the array, never appends. Errors set state.error
+   * and reset resumableBatches to [] (banner just doesn't appear).
+   */
+  checkResumable: () => Promise<void>
+  /**
+   * Resume a crashed batch. On success: removes the batch from
+   * resumableBatches, flips status='running' + conversionId=id, and
+   * re-subscribes the event stream so per-file progress updates flow into
+   * the existing perFileProgress / fileStatuses Maps. Uses
+   * reset() → seedFilePaths(remaining) → subscribeEvents() →
+   * conversion.resume(id) order so the renderer Maps are empty when the
+   * worker starts emitting events.
+   * On BatchAlreadyActive: sets state.error to the French message; the
+   * batch stays in resumableBatches so the user can retry once the active
+   * one finishes.
+   */
+  resumeBatch: (conversionId: string) => Promise<void>
+  /**
+   * Discard a crashed batch — drops the conversions row + CASCADE drops
+   * conversion_files via the discard IPC channel. Removes the batch from
+   * resumableBatches immediately on success.
+   */
+  discardBatch: (conversionId: string) => Promise<void>
 }
 
 /** D-CONV-FORMAT default (LOCKED): mp3-320 selected on every fresh mount. */
@@ -79,7 +110,8 @@ const INITIAL = {
   errors: [] as ConversionErrorEntry[],
   selectedPreset: DEFAULT_PRESET,
   customPreset: null as Preset | null,
-  error: null as string | null
+  error: null as string | null,
+  resumableBatches: [] as ResumableBatch[]
 }
 
 function isBatchAlreadyActive(err: unknown): boolean {
@@ -207,8 +239,80 @@ export const useConversionStore = create<ConversionState>((set, get) => {
         perFileProgress: new Map(),
         fileStatuses: new Map(),
         errors: [],
-        pendingFilePaths: []
+        pendingFilePaths: [],
+        resumableBatches: []
       })
+    },
+
+    checkResumable: async (): Promise<void> => {
+      try {
+        const batches = await window.djUtils.conversion.listResumable()
+        set({ resumableBatches: batches })
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Failed to load resumable batches'
+        set({ resumableBatches: [], error: message })
+      }
+    },
+
+    resumeBatch: async (conversionId: string): Promise<void> => {
+      const preResumable = get().resumableBatches
+      const batch = preResumable.find((b) => b.conversionId === conversionId)
+      try {
+        // Order matters: reset → subscribe → resume.
+        // reset() nukes the per-file Maps so leftover state from a prior
+        // batch doesn't leak into the resumed UI; subscribeEvents must be
+        // wired BEFORE conversion.resume so the first 'progress' event
+        // from the worker is captured. We restore resumableBatches (minus
+        // the one being resumed) AFTER the reset so other crashed batches
+        // stay visible in the banner if the resume rejects.
+        // pendingFilePaths stays [] because the ResumableBatch surface
+        // only exposes pendingCount, not the file list — per-file rows
+        // will appear as fileDone events arrive (plan-checker discretion:
+        // already-done files NOT displayed).
+        get().reset()
+        set({
+          resumableBatches: preResumable.filter(
+            (b) => b.conversionId !== conversionId
+          ),
+          // Restore the original preset so it shows in the UI (LOCKED:
+          // resume re-uses the original preset; user does NOT re-pick).
+          selectedPreset: batch?.preset ?? DEFAULT_PRESET
+        })
+        get().subscribeEvents()
+        await window.djUtils.conversion.resume(conversionId)
+        set({
+          status: 'running',
+          conversionId,
+          error: null
+        })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erreur inconnue'
+        // Batch stays in resumableBatches so the user can retry — but
+        // we already filtered it out above. Re-insert it.
+        set((s) => ({
+          error: message,
+          resumableBatches:
+            batch !== undefined &&
+            !s.resumableBatches.some((b) => b.conversionId === conversionId)
+              ? [...s.resumableBatches, batch]
+              : s.resumableBatches
+        }))
+      }
+    },
+
+    discardBatch: async (conversionId: string): Promise<void> => {
+      try {
+        await window.djUtils.conversion.discard(conversionId)
+        set((s) => ({
+          resumableBatches: s.resumableBatches.filter(
+            (b) => b.conversionId !== conversionId
+          )
+        }))
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erreur inconnue'
+        set({ error: message })
+      }
     }
   }
 })

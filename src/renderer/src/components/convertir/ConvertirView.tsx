@@ -5,6 +5,7 @@ import { useConversionStore } from '../../store/useConversionStore'
 import { PresetSelector } from './PresetSelector'
 import { CustomPresetForm, isCustomPresetValid } from './CustomPresetForm'
 import { ConversionProgress } from './ConversionProgress'
+import { ResumeBanner } from './ResumeBanner'
 
 /**
  * Top-level Convertir view.
@@ -39,6 +40,13 @@ export function ConvertirView(): React.JSX.Element {
   useEffect(() => {
     const off = useConversionStore.getState().subscribeEvents()
     return off
+  }, [])
+
+  // Plan 03-03: one-shot crash-detection check on Convertir mount.
+  // LOCKED Pitfall 9: NOT polling — the boot sweep already flipped crashed
+  // rows BEFORE the window was created, so a single fetch is sufficient.
+  useEffect(() => {
+    void useConversionStore.getState().checkResumable()
   }, [])
 
   useEffect(() => {
@@ -95,6 +103,7 @@ export function ConvertirView(): React.JSX.Element {
       </header>
 
       <div className="convertir__body">
+        <ResumeBanner />
         <div className="convertir__config">
           <PresetSelector />
           {isCustom ? <CustomPresetForm /> : null}

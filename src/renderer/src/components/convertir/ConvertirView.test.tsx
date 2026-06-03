@@ -238,4 +238,209 @@ describe('ConvertirView', () => {
     fireEvent.click(screen.getByRole('button', { name: /Retour à l’Analyser/i }))
     expect(useAppStore.getState().activeTool).toBe('analyser')
   })
+
+  // ─────────────────────── Plan 03-03 — Resume banner ───────────────────────
+
+  it('on mount, calls listResumable exactly ONCE (LOCKED Pitfall 9: one-shot, not polling)', async () => {
+    const bridge = installBridge()
+    resetStores()
+    const { rerender } = render(<ConvertirView />)
+    await waitFor(() => {
+      expect(bridge.api.conversion.listResumable).toHaveBeenCalled()
+    })
+    const callsAfterFirstRender = (
+      bridge.api.conversion.listResumable as ReturnType<typeof vi.fn>
+    ).mock.calls.length
+    // Re-render should NOT trigger another listResumable.
+    rerender(<ConvertirView />)
+    rerender(<ConvertirView />)
+    expect(
+      (bridge.api.conversion.listResumable as ReturnType<typeof vi.fn>).mock.calls
+        .length
+    ).toBe(callsAfterFirstRender)
+    expect(callsAfterFirstRender).toBe(1)
+  })
+
+  it('ResumeBanner renders NOTHING when listResumable returns []', async () => {
+    installBridge()
+    resetStores()
+    render(<ConvertirView />)
+    // The boot sweep returned no crashed batches — banner must not appear.
+    expect(screen.queryByRole('region', { name: /Conversion à reprendre/i })).toBeNull()
+  })
+
+  it('ResumeBanner renders ABOVE PresetSelector when 1 crashed batch exists', async () => {
+    installBridge({
+      conversion: {
+        start: vi.fn().mockResolvedValue('conv-1'),
+        cancel: vi.fn().mockResolvedValue(undefined),
+        listResumable: vi.fn().mockResolvedValue([
+          {
+            conversionId: 'c-crashed',
+            rootFolder: '/music',
+            preset: {
+              slug: 'mp3-320',
+              label: 'MP3 320 kbps (CBR)',
+              codec: 'libmp3lame',
+              bitrateKbps: 320,
+              vbrQuality: null,
+              sampleRate: null,
+              extension: '.mp3'
+            },
+            outputDir: '/music/converted/mp3-320',
+            pendingCount: 12,
+            doneCount: 3,
+            errorCount: 0,
+            startedAt: 1_000
+          }
+        ]),
+        resume: vi.fn().mockResolvedValue(undefined),
+        discard: vi.fn().mockResolvedValue(undefined),
+        onEvent: vi.fn().mockReturnValue(() => {})
+      } as DjUtilsApi['conversion']
+    })
+    resetStores()
+    render(<ConvertirView />)
+
+    const banner = await screen.findByRole('region', { name: /Conversion à reprendre/i })
+    expect(banner).toBeInTheDocument()
+    expect(banner).toHaveTextContent('Reprendre la conversion de 12 fichiers ?')
+    expect(banner).toHaveTextContent(/MP3 320 kbps/i)
+
+    // Banner must appear ABOVE the preset radio group in DOM order.
+    const presetRadio = screen.getByRole('radio', { name: /MP3 320 kbps \(CBR\)/i })
+    expect(banner.compareDocumentPosition(presetRadio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('clicking Reprendre calls conversion.resume and clears the banner', async () => {
+    const resumeMock = vi.fn().mockResolvedValue(undefined)
+    installBridge({
+      conversion: {
+        start: vi.fn().mockResolvedValue('conv-1'),
+        cancel: vi.fn().mockResolvedValue(undefined),
+        listResumable: vi.fn().mockResolvedValue([
+          {
+            conversionId: 'c-1',
+            rootFolder: '/music',
+            preset: {
+              slug: 'mp3-320',
+              label: 'MP3 320 kbps (CBR)',
+              codec: 'libmp3lame',
+              bitrateKbps: 320,
+              vbrQuality: null,
+              sampleRate: null,
+              extension: '.mp3'
+            },
+            outputDir: '/music/out',
+            pendingCount: 5,
+            doneCount: 0,
+            errorCount: 0,
+            startedAt: 1_000
+          }
+        ]),
+        resume: resumeMock,
+        discard: vi.fn().mockResolvedValue(undefined),
+        onEvent: vi.fn().mockReturnValue(() => {})
+      } as DjUtilsApi['conversion']
+    })
+    resetStores()
+    render(<ConvertirView />)
+
+    const resumeBtn = await screen.findByRole('button', { name: /^Reprendre$/i })
+    fireEvent.click(resumeBtn)
+
+    await waitFor(() => {
+      expect(resumeMock).toHaveBeenCalledWith('c-1')
+    })
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('region', { name: /Conversion à reprendre/i })
+      ).toBeNull()
+    })
+  })
+
+  it('clicking Ignorer (supprimer) calls conversion.discard and clears the banner', async () => {
+    const discardMock = vi.fn().mockResolvedValue(undefined)
+    installBridge({
+      conversion: {
+        start: vi.fn().mockResolvedValue('conv-1'),
+        cancel: vi.fn().mockResolvedValue(undefined),
+        listResumable: vi.fn().mockResolvedValue([
+          {
+            conversionId: 'c-discard',
+            rootFolder: '/music',
+            preset: {
+              slug: 'mp3-320',
+              label: 'MP3 320 kbps (CBR)',
+              codec: 'libmp3lame',
+              bitrateKbps: 320,
+              vbrQuality: null,
+              sampleRate: null,
+              extension: '.mp3'
+            },
+            outputDir: '/music/out',
+            pendingCount: 2,
+            doneCount: 0,
+            errorCount: 0,
+            startedAt: 1_000
+          }
+        ]),
+        resume: vi.fn().mockResolvedValue(undefined),
+        discard: discardMock,
+        onEvent: vi.fn().mockReturnValue(() => {})
+      } as DjUtilsApi['conversion']
+    })
+    resetStores()
+    render(<ConvertirView />)
+
+    const ignoreBtn = await screen.findByRole('button', { name: /Ignorer/i })
+    fireEvent.click(ignoreBtn)
+
+    await waitFor(() => {
+      expect(discardMock).toHaveBeenCalledWith('c-discard')
+    })
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('region', { name: /Conversion à reprendre/i })
+      ).toBeNull()
+    })
+  })
+
+  it('singular wording: pendingCount=1 renders "1 fichier ?" without trailing s', async () => {
+    installBridge({
+      conversion: {
+        start: vi.fn().mockResolvedValue('conv-1'),
+        cancel: vi.fn().mockResolvedValue(undefined),
+        listResumable: vi.fn().mockResolvedValue([
+          {
+            conversionId: 'c-1',
+            rootFolder: '/music',
+            preset: {
+              slug: 'mp3-320',
+              label: 'MP3 320 kbps (CBR)',
+              codec: 'libmp3lame',
+              bitrateKbps: 320,
+              vbrQuality: null,
+              sampleRate: null,
+              extension: '.mp3'
+            },
+            outputDir: '/music/out',
+            pendingCount: 1,
+            doneCount: 0,
+            errorCount: 0,
+            startedAt: 1_000
+          }
+        ]),
+        resume: vi.fn().mockResolvedValue(undefined),
+        discard: vi.fn().mockResolvedValue(undefined),
+        onEvent: vi.fn().mockReturnValue(() => {})
+      } as DjUtilsApi['conversion']
+    })
+    resetStores()
+    render(<ConvertirView />)
+
+    expect(
+      await screen.findByText(/Reprendre la conversion de 1 fichier \?/i)
+    ).toBeInTheDocument()
+  })
 })
