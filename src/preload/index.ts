@@ -12,6 +12,8 @@ const djUtils: DjUtilsApi = {
   pickFolder: () => ipcRenderer.invoke(IpcChannels.PickFolder),
   getRootFolder: () => ipcRenderer.invoke(IpcChannels.GetRootFolder),
   setRootFolder: (path: string) => ipcRenderer.invoke(IpcChannels.SetRootFolder, path),
+  getSetting: (key) => ipcRenderer.invoke(IpcChannels.GetSetting, key),
+  setSetting: (key, value) => ipcRenderer.invoke(IpcChannels.SetSetting, key, value),
   scan: {
     start: (folder: string) => ipcRenderer.invoke(IpcChannels.ScanStart, folder),
     cancel: (scanId: string) => ipcRenderer.invoke(IpcChannels.ScanCancel, scanId),

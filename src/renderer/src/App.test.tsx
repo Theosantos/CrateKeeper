@@ -9,6 +9,8 @@ function installDjUtilsMock(): void {
     pickFolder: vi.fn<DjUtilsApi['pickFolder']>().mockResolvedValue(null),
     getRootFolder: vi.fn<DjUtilsApi['getRootFolder']>().mockResolvedValue(null),
     setRootFolder: vi.fn<DjUtilsApi['setRootFolder']>().mockResolvedValue(undefined),
+    getSetting: vi.fn<DjUtilsApi['getSetting']>().mockResolvedValue(null),
+    setSetting: vi.fn<DjUtilsApi['setSetting']>().mockResolvedValue(undefined),
     scan: {
       start: vi.fn<DjUtilsApi['scan']['start']>().mockResolvedValue(''),
       cancel: vi.fn<DjUtilsApi['scan']['cancel']>().mockResolvedValue(undefined),

@@ -9,6 +9,13 @@ export const IpcChannels = {
   PickFolder: 'dialog:pick-folder',
   GetRootFolder: 'settings:get-folder',
   SetRootFolder: 'settings:set-folder',
+  /**
+   * Generic typed K/V settings access, allowlisted on the main side.
+   * Added in Plan 03-02 to satisfy LOCKED persistence of conversion.lastPreset.
+   * Only keys in SETTINGS_KEY_ALLOWLIST are accepted (T-1-02 mitigation).
+   */
+  GetSetting: 'settings:get',
+  SetSetting: 'settings:set',
   // Phase 2 — scan namespace.
   ScanStart: 'scan:start',
   ScanCancel: 'scan:cancel',
@@ -137,10 +144,22 @@ export interface DjUtilsConversionApi {
   onEvent(cb: (e: ConversionEvent) => void): () => void
 }
 
+/**
+ * Settings keys that may be read/written through the generic
+ * settings:get / settings:set bridge. Anything outside this set is rejected
+ * on the main side (T-1-02: untrusted IPC argument).
+ */
+export const SETTINGS_KEY_ALLOWLIST = ['conversion.lastPreset'] as const
+export type AllowedSettingKey = (typeof SETTINGS_KEY_ALLOWLIST)[number]
+
 export interface DjUtilsApi {
   pickFolder(): Promise<string | null>
   getRootFolder(): Promise<string | null>
   setRootFolder(path: string): Promise<void>
+  /** Generic K/V settings read; key must be in the allowlist. */
+  getSetting(key: AllowedSettingKey): Promise<string | null>
+  /** Generic K/V settings write; key must be in the allowlist. */
+  setSetting(key: AllowedSettingKey, value: string): Promise<void>
   scan: DjUtilsScanApi
   conversion: DjUtilsConversionApi
 }
