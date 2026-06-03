@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '../../store/useAppStore'
 import { useScanStore } from '../../store/useScanStore'
+import { useConversionStore } from '../../store/useConversionStore'
 
 /**
  * Scanner / Stop / Exporter CSV controls + live progress strip.
@@ -17,6 +18,8 @@ const EXPORT_TOAST_MS = 4000
 
 export function ScanToolbar(): React.JSX.Element {
   const rootFolder = useAppStore((s) => s.rootFolder)
+  const setActiveTool = useAppStore((s) => s.setActiveTool)
+  const selectedFilePaths = useScanStore((s) => s.selectedFilePaths)
   const status = useScanStore((s) => s.status)
   const rowsCount = useScanStore((s) => s.rows.length)
   const totalFiles = useScanStore((s) => s.totalFiles)
@@ -48,6 +51,16 @@ export function ScanToolbar(): React.JSX.Element {
       setRecentExportPath(exportedPath)
     }
   }
+
+  function handleConvertSelection(): void {
+    const paths = Array.from(selectedFilePaths)
+    if (paths.length === 0) return
+    useConversionStore.getState().seedFilePaths(paths)
+    setActiveTool('convertir')
+  }
+
+  const selectedCount = selectedFilePaths.size
+  const selectionLabel = `Convertir ${selectedCount} fichier${selectedCount > 1 ? 's' : ''}`
 
   // Hide the toast after a short delay. Pure CSS opacity transitions handle
   // the visual fade (no layout-bound animation — web/performance.md).
@@ -97,6 +110,15 @@ export function ScanToolbar(): React.JSX.Element {
         >
           Exporter CSV
         </button>
+        {selectedCount > 0 ? (
+          <button
+            type="button"
+            className="scan-toolbar__button scan-toolbar__button--convert"
+            onClick={handleConvertSelection}
+          >
+            {selectionLabel}
+          </button>
+        ) : null}
         {rootFolder === null ? (
           <p className="scan-toolbar__hint">
             Choisis un dossier racine pour lancer un scan.

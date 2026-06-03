@@ -1,7 +1,8 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ScannedFile } from '../../../../shared/ipc-types'
 import { TagBadge } from './TagBadge'
+import { useScanStore } from '../../store/useScanStore'
 
 /**
  * Fixed-height virtualized file table. Renders only the rows in view
@@ -9,6 +10,10 @@ import { TagBadge } from './TagBadge'
  *
  * Composition: the parent (AnalyserView) passes `rows` selected from
  * useScanStore — the table itself stays a pure presentational component.
+ *
+ * Plan 03-02 extension: a leftmost ~32px checkbox column wired to the
+ * selection state owned by useScanStore. The header cell renders a
+ * tri-state "select all" checkbox (none / mixed / all).
  */
 
 type Props = {
@@ -41,8 +46,40 @@ function formatDuration(seconds: number | null): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+type HeaderCheckboxState = 'none' | 'all' | 'mixed'
+
+function HeaderCheckbox({
+  state,
+  onToggle
+}: {
+  state: HeaderCheckboxState
+  onToggle: () => void
+}): React.JSX.Element {
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (ref.current !== null) {
+      ref.current.indeterminate = state === 'mixed'
+    }
+  }, [state])
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      className="file-table__checkbox"
+      aria-label="Tout sélectionner"
+      aria-checked={state === 'mixed' ? 'mixed' : state === 'all'}
+      checked={state === 'all'}
+      onChange={onToggle}
+    />
+  )
+}
+
 export function VirtualizedFileTable({ rows }: Props): React.JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const selectedFilePaths = useScanStore((s) => s.selectedFilePaths)
+  const toggleFile = useScanStore((s) => s.toggleFile)
+  const toggleAll = useScanStore((s) => s.toggleAll)
+
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
@@ -53,9 +90,24 @@ export function VirtualizedFileTable({ rows }: Props): React.JSX.Element {
   const items = virtualizer.getVirtualItems()
   const totalSize = virtualizer.getTotalSize()
 
+  let headerState: HeaderCheckboxState = 'none'
+  if (rows.length > 0) {
+    const selectedHere = rows.filter((r) => selectedFilePaths.has(r.path)).length
+    if (selectedHere === rows.length) headerState = 'all'
+    else if (selectedHere > 0) headerState = 'mixed'
+  }
+
+  const visiblePaths = rows.map((r) => r.path)
+
   return (
     <div className="file-table" role="table" aria-label="Fichiers scannés">
       <div className="file-table__head" role="row">
+        <div
+          className="file-table__cell file-table__cell--select"
+          role="columnheader"
+        >
+          <HeaderCheckbox state={headerState} onToggle={() => toggleAll(visiblePaths)} />
+        </div>
         <div className="file-table__cell file-table__cell--name" role="columnheader">
           Fichier
         </div>
@@ -92,6 +144,7 @@ export function VirtualizedFileTable({ rows }: Props): React.JSX.Element {
             {items.map((vi) => {
               const row = rows[vi.index]
               const isError = !row.parsedOk
+              const isChecked = selectedFilePaths.has(row.path)
               const rowClass = `file-table__row${isError ? ' row--errored' : ''}`
               return (
                 <div
@@ -108,6 +161,18 @@ export function VirtualizedFileTable({ rows }: Props): React.JSX.Element {
                     height: `${vi.size}px`
                   }}
                 >
+                  <div
+                    className="file-table__cell file-table__cell--select"
+                    role="cell"
+                  >
+                    <input
+                      type="checkbox"
+                      className="file-table__checkbox"
+                      aria-label={`Sélectionner ${basename(row.path)}`}
+                      checked={isChecked}
+                      onChange={() => toggleFile(row.path)}
+                    />
+                  </div>
                   <div
                     className="file-table__cell file-table__cell--name"
                     role="cell"

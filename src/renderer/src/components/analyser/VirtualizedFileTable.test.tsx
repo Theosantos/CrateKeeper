@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import type { ScannedFile } from '../../../../shared/ipc-types'
 import { VirtualizedFileTable } from './VirtualizedFileTable'
+import { useScanStore } from '../../store/useScanStore'
 
 // jsdom has no layout + no ResizeObserver, so @tanstack/react-virtual's
 // real measurement loop never fires its scroll-element rect callback and
@@ -50,8 +51,20 @@ function makeRow(i: number, overrides: Partial<ScannedFile> = {}): ScannedFile {
   }
 }
 
-// Quiet beforeEach hook kept for symmetry; the mock above does the heavy lifting.
-beforeEach(() => {})
+// Reset the scan store between tests so selection state doesn't leak.
+beforeEach(() => {
+  useScanStore.setState({
+    scanId: null,
+    status: 'idle',
+    rows: [],
+    totalFiles: null,
+    durationMs: null,
+    error: null,
+    exporting: false,
+    lastExportPath: null,
+    selectedFilePaths: new Set<string>()
+  })
+})
 
 describe('VirtualizedFileTable', () => {
   it('renders the header row and an empty-state message when rows=[]', () => {
@@ -95,5 +108,64 @@ describe('VirtualizedFileTable', () => {
     render(<VirtualizedFileTable rows={rows} />)
     expect(screen.getByText('—')).toBeInTheDocument()
     expect(screen.getByText('2:05')).toBeInTheDocument()
+  })
+
+  describe('selection column (Plan 03-02)', () => {
+    it('renders a leftmost checkbox cell per row', () => {
+      const rows = [makeRow(1), makeRow(2)]
+      render(<VirtualizedFileTable rows={rows} />)
+      // One header "select all" + one per row.
+      const boxes = screen.getAllByRole('checkbox')
+      expect(boxes.length).toBe(rows.length + 1)
+    })
+
+    it('toggling a row checkbox calls useScanStore.toggleFile with the row path', () => {
+      const rows = [makeRow(1)]
+      render(<VirtualizedFileTable rows={rows} />)
+      const rowBox = screen.getByRole('checkbox', { name: /sélectionner track-1\.mp3/i })
+      fireEvent.click(rowBox)
+      expect(useScanStore.getState().selectedFilePaths.has(rows[0].path)).toBe(true)
+    })
+
+    it('row checkbox reflects selectedFilePaths.has(path)', () => {
+      const rows = [makeRow(1)]
+      useScanStore.setState({
+        selectedFilePaths: new Set<string>([rows[0].path])
+      })
+      render(<VirtualizedFileTable rows={rows} />)
+      const rowBox = screen.getByRole('checkbox', {
+        name: /sélectionner track-1\.mp3/i
+      }) as HTMLInputElement
+      expect(rowBox.checked).toBe(true)
+    })
+
+    it('header checkbox renders aria-checked="mixed" when only some rows selected', () => {
+      const rows = [makeRow(1), makeRow(2), makeRow(3)]
+      useScanStore.setState({ selectedFilePaths: new Set<string>([rows[0].path]) })
+      render(<VirtualizedFileTable rows={rows} />)
+      const headerBox = screen.getByRole('checkbox', { name: /tout sélectionner/i })
+      expect(headerBox.getAttribute('aria-checked')).toBe('mixed')
+    })
+
+    it('header checkbox click selects all visible rows when none selected', () => {
+      const rows = [makeRow(1), makeRow(2), makeRow(3)]
+      render(<VirtualizedFileTable rows={rows} />)
+      const headerBox = screen.getByRole('checkbox', { name: /tout sélectionner/i })
+      fireEvent.click(headerBox)
+      const sel = useScanStore.getState().selectedFilePaths
+      expect(sel.size).toBe(3)
+      rows.forEach((r) => expect(sel.has(r.path)).toBe(true))
+    })
+
+    it('header checkbox click deselects all when every row selected', () => {
+      const rows = [makeRow(1), makeRow(2)]
+      useScanStore.setState({
+        selectedFilePaths: new Set<string>(rows.map((r) => r.path))
+      })
+      render(<VirtualizedFileTable rows={rows} />)
+      const headerBox = screen.getByRole('checkbox', { name: /tout sélectionner/i })
+      fireEvent.click(headerBox)
+      expect(useScanStore.getState().selectedFilePaths.size).toBe(0)
+    })
   })
 })
