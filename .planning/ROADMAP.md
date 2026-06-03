@@ -57,7 +57,7 @@
   5. Converted files retain their original ID3/MP4 tags
 **Plans**: 3 plans
   - [x] 03-01-PLAN.md — Conversion backbone: typed IPC bridge, conversions+conversion_files schema, presets registry, conversionCore + conversionWorker (ffmpeg pool, SIGTERM-first cancel), ConversionController (single-active, heartbeat), folder allowlist gate, tag round-trip integration test
-  - [ ] 03-02-PLAN.md — Convertir UI vertical slice: checkbox column + select-all in VirtualizedFileTable, Convertir N fichiers toolbar action, useConversionStore, ConvertirView with PresetSelector + Custom form + live per-file + global progress + summary
+  - [x] 03-02-PLAN.md — Convertir UI vertical slice: checkbox column + select-all in VirtualizedFileTable, Convertir N fichiers toolbar action, useConversionStore, ConvertirView with PresetSelector + Custom form + live per-file + global progress + summary
   - [ ] 03-03-PLAN.md — Resume after crash (CONV-05): boot-time stale-heartbeat sweep, list-resumable/resume/discard handlers, controller.resume re-spawning with original preset, ResumeBanner with Reprendre / Ignorer (supprimer)
 
 ### Phase 4: Tagger Core
@@ -105,7 +105,7 @@
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete | 2026-05-29 |
 | 2. File Scanning & Library View | 3/3 | Complete   | 2026-05-29 |
-| 3. FFmpeg Conversion Pipeline | 1/3 | In Progress|  |
+| 3. FFmpeg Conversion Pipeline | 2/3 | In Progress|  |
 | 4. Tagger Core | 0/? | Not started | - |
 | 5. Tag Writing & Rekordbox Compatibility | 0/? | Not started | - |
 | 6. Distribution | 0/? | Not started | - |
