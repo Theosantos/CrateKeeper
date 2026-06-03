@@ -7,7 +7,15 @@ import { registerDialogHandlers } from './ipc/dialog'
 import { registerSettingsHandlers } from './ipc/settings'
 import { registerScanHandlers, makeRendererSender } from './ipc/scan'
 import { createScanController } from './scan/controller'
-import { getScanRepo, getSettingsRepo } from './db/connection'
+import { getScanRepo, getSettingsRepo, getConversionRepo } from './db/connection'
+import {
+  registerConversionHandlers,
+  makeConversionSender
+} from './ipc/conversion'
+import { createConversionController } from './conversion/controller'
+import { resolveFfmpegPath } from './conversion/ffmpegPath'
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const ffmpegStatic = require('ffmpeg-static') as string
 
 let mainWindow: BrowserWindow | null = null
 
@@ -80,6 +88,31 @@ app.whenReady().then(() => {
     controller: scanController,
     settingsRepo: getSettingsRepo(),
     scanRepo: getScanRepo(),
+    getSender: () => mainWindow?.webContents ?? null
+  })
+
+  // Phase 3: conversion backbone. The worker is bundled by electron-vite to
+  // out/main/workers/conversionWorker.js (Pitfall 1 carry-forward). The
+  // ffmpeg-static binary path is resolved once at controller construction
+  // and rewritten from app.asar → app.asar.unpacked in packaged builds.
+  const conversionSend = makeConversionSender(
+    () => mainWindow?.webContents ?? null
+  )
+  const conversionController = createConversionController({
+    spawnWorker: (data) =>
+      new Worker(join(__dirname, 'workers/conversionWorker.js'), {
+        workerData: data
+      }),
+    repo: getConversionRepo(),
+    send: conversionSend,
+    resolveFfmpegPath,
+    getFfmpegRawPath: () => ffmpegStatic,
+    isPackaged: app.isPackaged
+  })
+  registerConversionHandlers({
+    ipcMain,
+    controller: conversionController,
+    settingsRepo: getSettingsRepo(),
     getSender: () => mainWindow?.webContents ?? null
   })
 
