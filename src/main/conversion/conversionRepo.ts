@@ -56,6 +56,12 @@ export interface ConversionRepo {
   updateFile(conversionId: string, filePath: string, patch: UpdateFilePatch): void
   bumpHeartbeat(conversionId: string, ts: number): void
   complete(conversionId: string, patch: CompleteConversionPatch): void
+  /**
+   * Flip a conversion row's status without touching ended_at. Used by
+   * controller.resume() to resurrect a 'crashed' row back to 'running'.
+   * Distinct from `complete` which sets ended_at to a terminal timestamp.
+   */
+  updateConversionStatus(conversionId: string, status: ConversionStatus): void
   findResumable(): ResumableBatch[]
   markStaleAsCrashed(opts: { thresholdMs: number; now: number }): number
   getResumablePending(conversionId: string): string[]
@@ -187,6 +193,10 @@ export function createConversionRepo(db: Database.Database): ConversionRepo {
     'UPDATE conversions SET status = @status, ended_at = @ended_at WHERE id = @id'
   )
 
+  const updateStatusStmt = db.prepare(
+    'UPDATE conversions SET status = ? WHERE id = ?'
+  )
+
   const findResumableStmt = db.prepare(
     'SELECT c.id, c.root_folder, c.preset_json, c.output_dir, c.started_at,' +
       "  SUM(CASE WHEN f.status IN ('pending','running','error') THEN 1 ELSE 0 END) AS pending_count," +
@@ -272,6 +282,10 @@ export function createConversionRepo(db: Database.Database): ConversionRepo {
         status: patch.status,
         ended_at: patch.endedAt
       })
+    },
+
+    updateConversionStatus(conversionId, status) {
+      updateStatusStmt.run(status, conversionId)
     },
 
     findResumable() {

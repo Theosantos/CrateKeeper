@@ -35,6 +35,8 @@ const djUtils: DjUtilsApi = {
       ipcRenderer.invoke(IpcChannels.ConversionListResumable),
     resume: (conversionId: string) =>
       ipcRenderer.invoke(IpcChannels.ConversionResume, conversionId),
+    discard: (conversionId: string) =>
+      ipcRenderer.invoke(IpcChannels.ConversionDiscard, conversionId),
     onEvent: (cb: (e: ConversionEvent) => void) => {
       const handler = (_: unknown, e: ConversionEvent): void => cb(e)
       ipcRenderer.on(IpcChannels.ConversionEvent, handler)

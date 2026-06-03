@@ -69,6 +69,13 @@ export interface ConversionController {
   cancel(conversionId: string): Promise<void>
   resume(conversionId: string): Promise<void>
   listResumable(): ResumableBatch[]
+  /**
+   * Boot-time stale-heartbeat sweep (Pitfall 9). Called from main.index.ts
+   * BEFORE any BrowserWindow is created so the renderer never sees a
+   * 'running' row that's actually crashed. Pure pass-through to the repo —
+   * does NOT spawn workers, does NOT touch activeConversion.
+   */
+  markStaleAsCrashed(opts: { thresholdMs: number; now: number }): number
 }
 
 interface ActiveConversion {
@@ -313,14 +320,86 @@ export function createConversionController(
       clearActive(conversionId)
     },
 
-    async resume(_conversionId: string): Promise<void> {
-      throw new Error(
-        'conversion:resume not implemented in Plan 03-01; see Plan 03-03'
-      )
+    async resume(conversionId: string): Promise<void> {
+      if (active !== null) {
+        throw new BatchAlreadyActive()
+      }
+      const row = deps.repo.getConversion(conversionId)
+      if (row === null || row.status !== 'crashed') {
+        throw new Error('Batch not resumable')
+      }
+      const pending = deps.repo.getResumablePending(conversionId)
+      const startedAt = now()
+      if (pending.length === 0) {
+        // Defensive race: a crashed batch where every file is already terminal
+        // (done / skipped / cancelled). No work — flip status='done' so it
+        // stops showing up in findResumable.
+        deps.repo.complete(conversionId, { status: 'done', endedAt: startedAt })
+        deps.send(IpcChannels.ConversionEvent, { type: 'done', conversionId })
+        return
+      }
+
+      // Resurrect the row and refresh the heartbeat BEFORE spawning the worker
+      // so the sweep doesn't immediately re-flip us to 'crashed'.
+      deps.repo.updateConversionStatus(conversionId, 'running')
+      deps.repo.bumpHeartbeat(conversionId, startedAt)
+
+      const ffmpegPath = deps.resolveFfmpegPath({
+        rawPath: deps.getFfmpegRawPath(),
+        isPackaged: deps.isPackaged
+      })
+
+      const parallelism = computeParallelism(cpuCount())
+
+      const worker = deps.spawnWorker({
+        conversionId,
+        files: pending,
+        ffmpegPath,
+        preset: row.preset,
+        outputDir: row.outputDir,
+        parallelism
+      })
+
+      let resolveSettled: () => void = () => {}
+      const settled = new Promise<void>((res) => {
+        resolveSettled = res
+      })
+      let resolveWorkerSettled: () => void = () => {}
+      const workerSettled = new Promise<void>((res) => {
+        resolveWorkerSettled = res
+      })
+
+      const heartbeatTimer = setInterval(() => {
+        try {
+          deps.repo.bumpHeartbeat(conversionId, now())
+        } catch {
+          // Race with terminal — ignore.
+        }
+      }, heartbeatMs)
+
+      active = {
+        conversionId,
+        worker,
+        heartbeatTimer,
+        settled,
+        resolveSettled,
+        workerSettled,
+        resolveWorkerSettled
+      }
+
+      attachWorker(conversionId, worker)
     },
 
     listResumable(): ResumableBatch[] {
       return deps.repo.findResumable()
+    },
+
+    markStaleAsCrashed({ thresholdMs, now: nowTs }): number {
+      // Pure thin wrapper — does NOT spawn workers, does NOT touch
+      // activeConversion. Exists on the controller (not main calling the
+      // repo directly) so the controller stays the single API surface
+      // (Pitfall 9 mitigation; Plan 03-03 Task 1).
+      return deps.repo.markStaleAsCrashed({ thresholdMs, now: nowTs })
     }
   }
 }

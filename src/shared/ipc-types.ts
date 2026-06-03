@@ -27,6 +27,7 @@ export const IpcChannels = {
   ConversionCancel: 'conversion:cancel',
   ConversionListResumable: 'conversion:list-resumable',
   ConversionResume: 'conversion:resume',
+  ConversionDiscard: 'conversion:discard',
   /** main → renderer push channel; not invoked from the renderer. */
   ConversionEvent: 'conversion:event'
 } as const
@@ -140,6 +141,11 @@ export interface DjUtilsConversionApi {
   cancel(conversionId: string): Promise<void>
   listResumable(): Promise<ResumableBatch[]>
   resume(conversionId: string): Promise<void>
+  /**
+   * Drops a crashed batch row from the DB. CASCADE drops its conversion_files
+   * rows. Idempotent — discarding a non-existent id is a no-op.
+   */
+  discard(conversionId: string): Promise<void>
   /** Subscribes to conversion:event pushes; returns an unsubscribe closure. */
   onEvent(cb: (e: ConversionEvent) => void): () => void
 }

@@ -205,6 +205,26 @@ describe('conversionRepo', () => {
     })
   })
 
+  describe('updateConversionStatus (Plan 03-03)', () => {
+    it('flips status without touching ended_at', () => {
+      repo.createConversion({
+        id: 'c1',
+        rootFolder: '/M',
+        preset: MP3_320,
+        outputDir: '/M/out',
+        startedAt: 1_000
+      })
+      // Crash the row first
+      repo.complete('c1', { status: 'crashed', endedAt: 2_000 })
+      // Resurrect on resume
+      repo.updateConversionStatus('c1', 'running')
+      const r = repo.getConversion('c1')
+      expect(r!.status).toBe('running')
+      // ended_at is preserved (not nulled, not overwritten) by this method.
+      expect(r!.endedAt).toBe(2_000)
+    })
+  })
+
   describe('findResumable', () => {
     it('returns crashed batches with aggregated counts', () => {
       repo.createConversion({
@@ -239,6 +259,35 @@ describe('conversionRepo', () => {
       expect(r.doneCount).toBe(1)
       expect(r.errorCount).toBe(1)
       expect(r.preset.slug).toBe('mp3-320')
+    })
+
+    it('EXCLUDES cancelled batches (LOCKED Plan 03-03: cancelled NOT resumable)', () => {
+      repo.createConversion({
+        id: 'c-cancelled',
+        rootFolder: '/M',
+        preset: MP3_320,
+        outputDir: '/M/out',
+        startedAt: 100
+      })
+      repo.complete('c-cancelled', { status: 'cancelled', endedAt: 150 })
+      repo.insertFileBatch(
+        [{ filePath: '/M/x.mp3', status: 'pending' }],
+        'c-cancelled'
+      )
+      const r = repo.findResumable()
+      expect(r.map((b) => b.conversionId)).not.toContain('c-cancelled')
+    })
+
+    it('EXCLUDES done batches', () => {
+      repo.createConversion({
+        id: 'c-done',
+        rootFolder: '/M',
+        preset: MP3_320,
+        outputDir: '/M/out',
+        startedAt: 100
+      })
+      repo.complete('c-done', { status: 'done', endedAt: 150 })
+      expect(repo.findResumable().map((b) => b.conversionId)).not.toContain('c-done')
     })
 
     it('sorts crashed batches by startedAt DESC', () => {

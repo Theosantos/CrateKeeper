@@ -33,7 +33,8 @@ function makeRepo(): ConversionRepo {
     getResumablePending: vi.fn(() => []),
     listFiles: vi.fn(() => []),
     deleteConversion: vi.fn(),
-    getConversion: vi.fn(() => null)
+    getConversion: vi.fn(() => null),
+    updateConversionStatus: vi.fn()
   } as unknown as ConversionRepo
 }
 
@@ -433,9 +434,126 @@ describe('ConversionController', () => {
     })
   })
 
-  describe('resume — stub for Plan 03-03', () => {
-    it('throws "not implemented"', async () => {
-      await expect(h.controller.resume('any-id')).rejects.toThrow(/not implemented/)
+  describe('resume — Plan 03-03', () => {
+    function seedCrashedRow(id: string, files: string[]): void {
+      ;(h.repo.getConversion as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+        id,
+        rootFolder: '/M',
+        preset: MP3_320,
+        outputDir: '/M/converted/mp3-320',
+        status: 'crashed',
+        startedAt: 100,
+        endedAt: 200,
+        heartbeatAt: 100
+      })
+      ;(h.repo.getResumablePending as ReturnType<typeof vi.fn>).mockReturnValueOnce(files)
+    }
+
+    it('re-spawns the worker with the original preset + only the resumable file list', async () => {
+      seedCrashedRow('c-resume', ['/M/a.mp3', '/M/c.flac'])
+      h.setNow(7_000)
+      await h.controller.resume('c-resume')
+
+      expect(h.repo.getConversion).toHaveBeenCalledWith('c-resume')
+      expect(h.repo.getResumablePending).toHaveBeenCalledWith('c-resume')
+      // Resurrects status + refreshes heartbeat BEFORE spawning worker.
+      expect(h.repo.updateConversionStatus).toHaveBeenCalledWith('c-resume', 'running')
+      expect(h.repo.bumpHeartbeat).toHaveBeenCalledWith('c-resume', 7_000)
+      expect(h.spawnedData).toHaveLength(1)
+      expect(h.spawnedData[0]).toEqual(
+        expect.objectContaining({
+          conversionId: 'c-resume',
+          files: ['/M/a.mp3', '/M/c.flac'],
+          preset: MP3_320,
+          outputDir: '/M/converted/mp3-320'
+        })
+      )
+      // Ordering: updateConversionStatus + bumpHeartbeat both happen before
+      // spawnWorker so the boot sweep can't immediately re-crash the row.
+      const updateOrder = (h.repo.updateConversionStatus as ReturnType<typeof vi.fn>)
+        .mock.invocationCallOrder[0]
+      const bumpOrder = (h.repo.bumpHeartbeat as ReturnType<typeof vi.fn>)
+        .mock.invocationCallOrder[0]
+      expect(updateOrder).toBeLessThan(bumpOrder)
+    })
+
+    it('throws BatchAlreadyActive when a batch is already running (LOCKED single-active)', async () => {
+      await h.controller.start({
+        rootFolder: '/M',
+        filePaths: ['/M/a.mp3'],
+        preset: MP3_320
+      })
+      await expect(h.controller.resume('whatever')).rejects.toBeInstanceOf(
+        BatchAlreadyActive
+      )
+      // resume should not touch the DB once it has rejected.
+      expect(h.repo.updateConversionStatus).not.toHaveBeenCalled()
+    })
+
+    it('throws "Batch not resumable" when row is missing', async () => {
+      ;(h.repo.getConversion as ReturnType<typeof vi.fn>).mockReturnValueOnce(null)
+      await expect(h.controller.resume('missing-id')).rejects.toThrow(
+        /not resumable/i
+      )
+      expect(h.spawnedData).toHaveLength(0)
+    })
+
+    it('throws "Batch not resumable" when row status is cancelled (LOCKED)', async () => {
+      ;(h.repo.getConversion as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+        id: 'c-cancelled',
+        rootFolder: '/M',
+        preset: MP3_320,
+        outputDir: '/M/out',
+        status: 'cancelled',
+        startedAt: 100,
+        endedAt: 200,
+        heartbeatAt: 100
+      })
+      await expect(h.controller.resume('c-cancelled')).rejects.toThrow(
+        /not resumable/i
+      )
+      expect(h.spawnedData).toHaveLength(0)
+    })
+
+    it('throws "Batch not resumable" when row status is done', async () => {
+      ;(h.repo.getConversion as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+        id: 'c-done',
+        rootFolder: '/M',
+        preset: MP3_320,
+        outputDir: '/M/out',
+        status: 'done',
+        startedAt: 100,
+        endedAt: 200,
+        heartbeatAt: 100
+      })
+      await expect(h.controller.resume('c-done')).rejects.toThrow(/not resumable/i)
+    })
+
+    it('with no pending files: cleanly completes status=done without spawning a worker', async () => {
+      seedCrashedRow('c-empty', [])
+      h.setNow(8_000)
+      await h.controller.resume('c-empty')
+      expect(h.spawnedData).toHaveLength(0)
+      expect(h.repo.complete).toHaveBeenCalledWith('c-empty', {
+        status: 'done',
+        endedAt: 8_000
+      })
+      expect(h.send).toHaveBeenCalledWith(IpcChannels.ConversionEvent, {
+        type: 'done',
+        conversionId: 'c-empty'
+      })
+    })
+
+    it('after resume completes, active is set so a follow-up start rejects', async () => {
+      seedCrashedRow('c-active', ['/M/x.mp3'])
+      await h.controller.resume('c-active')
+      await expect(
+        h.controller.start({
+          rootFolder: '/M',
+          filePaths: ['/M/y.mp3'],
+          preset: MP3_320
+        })
+      ).rejects.toBeInstanceOf(BatchAlreadyActive)
     })
   })
 
@@ -443,6 +561,31 @@ describe('ConversionController', () => {
     it('delegates to repo.findResumable', () => {
       h.controller.listResumable()
       expect(h.repo.findResumable).toHaveBeenCalled()
+    })
+  })
+
+  describe('markStaleAsCrashed — boot sweep wrapper (Pitfall 9)', () => {
+    it('delegates to repo.markStaleAsCrashed and returns the count', () => {
+      ;(h.repo.markStaleAsCrashed as ReturnType<typeof vi.fn>).mockReturnValueOnce(3)
+      const n = h.controller.markStaleAsCrashed({ thresholdMs: 30_000, now: 9_999 })
+      expect(n).toBe(3)
+      expect(h.repo.markStaleAsCrashed).toHaveBeenCalledWith({
+        thresholdMs: 30_000,
+        now: 9_999
+      })
+    })
+
+    it('does NOT spawn a worker and does NOT touch activeConversion', async () => {
+      h.controller.markStaleAsCrashed({ thresholdMs: 30_000, now: 1 })
+      expect(h.spawnedData).toHaveLength(0)
+      // active is null, so a subsequent start() must succeed (no leftover state).
+      await expect(
+        h.controller.start({
+          rootFolder: '/M',
+          filePaths: ['/M/a.mp3'],
+          preset: MP3_320
+        })
+      ).resolves.toBeTruthy()
     })
   })
 })
