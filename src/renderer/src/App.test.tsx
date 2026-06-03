@@ -14,6 +14,15 @@ function installDjUtilsMock(): void {
       cancel: vi.fn<DjUtilsApi['scan']['cancel']>().mockResolvedValue(undefined),
       exportCsv: vi.fn<DjUtilsApi['scan']['exportCsv']>().mockResolvedValue(null),
       onEvent: vi.fn<DjUtilsApi['scan']['onEvent']>().mockReturnValue(() => {})
+    },
+    conversion: {
+      start: vi.fn<DjUtilsApi['conversion']['start']>().mockResolvedValue(''),
+      cancel: vi.fn<DjUtilsApi['conversion']['cancel']>().mockResolvedValue(undefined),
+      listResumable: vi
+        .fn<DjUtilsApi['conversion']['listResumable']>()
+        .mockResolvedValue([]),
+      resume: vi.fn<DjUtilsApi['conversion']['resume']>().mockResolvedValue(undefined),
+      onEvent: vi.fn<DjUtilsApi['conversion']['onEvent']>().mockReturnValue(() => {})
     }
   }
   globalThis.window.djUtils = api

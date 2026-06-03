@@ -33,7 +33,14 @@ function installScanMock(scanId = 'scan-1'): MockedScanApi {
     pickFolder: vi.fn().mockResolvedValue(null),
     getRootFolder: vi.fn().mockResolvedValue(null),
     setRootFolder: vi.fn().mockResolvedValue(undefined),
-    scan: api as unknown as DjUtilsApi['scan']
+    scan: api as unknown as DjUtilsApi['scan'],
+    conversion: {
+      start: vi.fn().mockResolvedValue(''),
+      cancel: vi.fn().mockResolvedValue(undefined),
+      listResumable: vi.fn().mockResolvedValue([]),
+      resume: vi.fn().mockResolvedValue(undefined),
+      onEvent: vi.fn().mockReturnValue(() => {})
+    } as unknown as DjUtilsApi['conversion']
   }
 
   return {

@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IpcChannels, type DjUtilsApi, type ScanEvent } from '../shared/ipc-types'
+import {
+  IpcChannels,
+  type DjUtilsApi,
+  type ScanEvent,
+  type ConversionEvent,
+  type Preset,
+  type ResumableBatch
+} from '../shared/ipc-types'
 
 const djUtils: DjUtilsApi = {
   pickFolder: () => ipcRenderer.invoke(IpcChannels.PickFolder),
@@ -14,6 +21,23 @@ const djUtils: DjUtilsApi = {
       ipcRenderer.on(IpcChannels.ScanEvent, handler)
       return () => {
         ipcRenderer.off(IpcChannels.ScanEvent, handler)
+      }
+    }
+  },
+  conversion: {
+    start: (params: { rootFolder: string; filePaths: string[]; preset: Preset }) =>
+      ipcRenderer.invoke(IpcChannels.ConversionStart, params),
+    cancel: (conversionId: string) =>
+      ipcRenderer.invoke(IpcChannels.ConversionCancel, conversionId),
+    listResumable: (): Promise<ResumableBatch[]> =>
+      ipcRenderer.invoke(IpcChannels.ConversionListResumable),
+    resume: (conversionId: string) =>
+      ipcRenderer.invoke(IpcChannels.ConversionResume, conversionId),
+    onEvent: (cb: (e: ConversionEvent) => void) => {
+      const handler = (_: unknown, e: ConversionEvent): void => cb(e)
+      ipcRenderer.on(IpcChannels.ConversionEvent, handler)
+      return () => {
+        ipcRenderer.off(IpcChannels.ConversionEvent, handler)
       }
     }
   }
