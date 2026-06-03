@@ -83,7 +83,8 @@ describe('useScanStore', () => {
       durationMs: null,
       error: null,
       exporting: false,
-      lastExportPath: null
+      lastExportPath: null,
+      selectedFilePaths: new Set<string>()
     })
   })
 
@@ -251,6 +252,76 @@ describe('useScanStore', () => {
       const firstResult = await first
       expect(firstResult).toBe('/tmp/x.csv')
       expect(useScanStore.getState().exporting).toBe(false)
+    })
+  })
+
+  describe('selection (Plan 03-02)', () => {
+    it('starts with an empty selectedFilePaths Set', () => {
+      const s = useScanStore.getState()
+      expect(s.selectedFilePaths).toBeInstanceOf(Set)
+      expect(s.selectedFilePaths.size).toBe(0)
+    })
+
+    it('toggleFile adds then removes a path; each call produces a NEW Set instance', () => {
+      const before = useScanStore.getState().selectedFilePaths
+      useScanStore.getState().toggleFile('/Music/a.mp3')
+      const after1 = useScanStore.getState().selectedFilePaths
+      expect(after1.has('/Music/a.mp3')).toBe(true)
+      expect(after1).not.toBe(before)
+
+      useScanStore.getState().toggleFile('/Music/a.mp3')
+      const after2 = useScanStore.getState().selectedFilePaths
+      expect(after2.has('/Music/a.mp3')).toBe(false)
+      expect(after2).not.toBe(after1)
+    })
+
+    it('toggleAll selects all when none selected, deselects when all selected, selects all when partial', () => {
+      const paths = ['/a.mp3', '/b.mp3', '/c.mp3']
+      // none → all
+      useScanStore.getState().toggleAll(paths)
+      let s = useScanStore.getState().selectedFilePaths
+      expect(s.size).toBe(3)
+      paths.forEach((p) => expect(s.has(p)).toBe(true))
+
+      // all → none
+      useScanStore.getState().toggleAll(paths)
+      s = useScanStore.getState().selectedFilePaths
+      expect(s.size).toBe(0)
+
+      // partial → all (only one selected)
+      useScanStore.getState().toggleFile('/a.mp3')
+      useScanStore.getState().toggleAll(paths)
+      s = useScanStore.getState().selectedFilePaths
+      expect(s.size).toBe(3)
+    })
+
+    it('clearSelection empties the set', () => {
+      useScanStore.getState().toggleFile('/a.mp3')
+      useScanStore.getState().toggleFile('/b.mp3')
+      expect(useScanStore.getState().selectedFilePaths.size).toBe(2)
+      useScanStore.getState().clearSelection()
+      expect(useScanStore.getState().selectedFilePaths.size).toBe(0)
+    })
+
+    it('starting a new scan resets selectedFilePaths to empty', async () => {
+      useScanStore.getState().toggleFile('/a.mp3')
+      useScanStore.getState().toggleFile('/b.mp3')
+      expect(useScanStore.getState().selectedFilePaths.size).toBe(2)
+
+      installScanMock('scan-X')
+      await useScanStore.getState().start('/music')
+      expect(useScanStore.getState().selectedFilePaths.size).toBe(0)
+    })
+
+    it('selectedFilePaths persists across unrelated state updates (e.g., rows events)', async () => {
+      const api = installScanMock('scan-A')
+      await useScanStore.getState().start('/music')
+      useScanStore.getState().toggleFile('/x.mp3')
+      expect(useScanStore.getState().selectedFilePaths.has('/x.mp3')).toBe(true)
+
+      api.emit({ type: 'rows', scanId: 'scan-A', rows: [makeRow(1)] })
+      expect(useScanStore.getState().selectedFilePaths.has('/x.mp3')).toBe(true)
+      expect(useScanStore.getState().rows.length).toBe(1)
     })
   })
 
