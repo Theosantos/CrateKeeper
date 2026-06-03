@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-06-02T16:39:20.028Z"
+last_updated: "2026-06-03T16:01:40.686Z"
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 5
+  total_plans: 8
   completed_plans: 5
   percent: 33
 ---
@@ -24,7 +24,7 @@ Last updated: 2026-05-29
 See: .planning/PROJECT.md (updated 2026-05-28)
 
 **Core value:** Permettre à un DJ de passer de "bibliothèque en désordre" à "collection propre et taguée" sans quitter une seule interface.
-**Current focus:** Phase 02 — scanning
+**Current focus:** Phase 03 — conversion
 
 ## Phase History
 
