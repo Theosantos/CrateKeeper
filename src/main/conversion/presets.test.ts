@@ -43,10 +43,13 @@ describe('buildFfmpegArgs', () => {
 
   it('starts with the canonical preamble and -i src', () => {
     const args = buildFfmpegArgs('/in.mp3', '/out.mp3', mp3_320)
+    // `-loglevel info` is required so the worker sees the `Duration:` header
+    // from ffmpeg's input-open output; with `-loglevel error` the duration
+    // line is suppressed and progress events never fire (see presets.ts).
     expect(args.slice(0, 7)).toEqual([
       '-hide_banner',
       '-loglevel',
-      'error',
+      'info',
       '-stats',
       '-y',
       '-i',

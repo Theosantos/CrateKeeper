@@ -70,9 +70,16 @@ export const PRESETS: ReadonlyArray<Preset> = [
  * `-id3v2_version 3` is the Rekordbox-compat lock (CONV-06) and is appended
  * ONLY when the target extension is `.mp3`. FLAC/WAV/AAC targets do not carry
  * ID3 frames natively.
+ *
+ * NOTE on `-loglevel info`: required for the worker's stderr parser to see
+ * the `Duration: HH:MM:SS.MS` header that ffmpeg prints when opening the
+ * input. With `-loglevel error -stats` the input header is silenced, the
+ * worker's `duration` stays null, and progress events are never emitted
+ * (the gate `t !== null && duration !== null && duration > 0` never opens).
+ * `info` brings the header back; the regex parsers ignore unrelated lines.
  */
 export function buildFfmpegArgs(src: string, out: string, preset: Preset): string[] {
-  const args: string[] = ['-hide_banner', '-loglevel', 'error', '-stats', '-y', '-i', src]
+  const args: string[] = ['-hide_banner', '-loglevel', 'info', '-stats', '-y', '-i', src]
 
   args.push('-c:a', preset.codec)
 
