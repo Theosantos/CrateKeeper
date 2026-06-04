@@ -5,7 +5,7 @@ import type { ScanEvent, ScannedFile } from '../../../shared/ipc-types'
  * Scan lifecycle store.
  *
  * The renderer never imports node/electron directly (Plan 01-02 T-1-04 invariant
- * carried). All privileged calls route through `window.djUtils.scan`, exposed
+ * carried). All privileged calls route through `window.crateKeeper.scan`, exposed
  * by the preload contextBridge in Plan 02-01.
  *
  * Anti-pattern guards (RESEARCH 02 Pitfall 5 / Anti-Patterns):
@@ -30,11 +30,20 @@ type ScanState = {
   exporting: boolean
   /** Last successfully-exported CSV path (renderer shows it as a toast). */
   lastExportPath: string | null
+  /**
+   * Plan 03-02: per-row selection bound to the conversion handoff.
+   * Persists across view switches; resets on every new scan (LOCKED).
+   * Always replaced with a NEW Set instance on mutation (TS immutability).
+   */
+  selectedFilePaths: Set<string>
   /** Private subscription handle — never read from components. */
   unsubscribe: (() => void) | null
   start: (folder: string) => Promise<void>
   cancel: () => Promise<void>
   exportCsv: () => Promise<string | null>
+  toggleFile: (filePath: string) => void
+  toggleAll: (filePaths: string[]) => void
+  clearSelection: () => void
   reset: () => void
 }
 
@@ -47,6 +56,7 @@ const INITIAL = {
   error: null,
   exporting: false,
   lastExportPath: null as string | null,
+  selectedFilePaths: new Set<string>(),
   unsubscribe: null as (() => void) | null
 }
 
@@ -97,6 +107,8 @@ export const useScanStore = create<ScanState>((set, get) => {
       if (prior) prior()
 
       // Optimistically reset state — actual scanId arrives below.
+      // selectedFilePaths is also cleared: starting a new scan resets the
+      // user's selection (Plan 03-02 LOCKED semantics).
       set({
         scanId: null,
         status: 'running',
@@ -104,18 +116,19 @@ export const useScanStore = create<ScanState>((set, get) => {
         totalFiles: null,
         durationMs: null,
         error: null,
+        selectedFilePaths: new Set<string>(),
         unsubscribe: null
       })
 
-      const scanId = await window.djUtils.scan.start(folder)
-      const off = window.djUtils.scan.onEvent((e) => handleEvent(e))
+      const scanId = await window.crateKeeper.scan.start(folder)
+      const off = window.crateKeeper.scan.onEvent((e) => handleEvent(e))
       set({ scanId, unsubscribe: off })
     },
 
     cancel: async (): Promise<void> => {
       const id = get().scanId
       if (id === null) return
-      await window.djUtils.scan.cancel(id)
+      await window.crateKeeper.scan.cancel(id)
       // Status transition is driven by the 'cancelled' event, not here.
     },
 
@@ -127,7 +140,7 @@ export const useScanStore = create<ScanState>((set, get) => {
       }
       set({ exporting: true })
       try {
-        const exportedPath = await window.djUtils.scan.exportCsv(s.scanId)
+        const exportedPath = await window.crateKeeper.scan.exportCsv(s.scanId)
         if (exportedPath !== null) {
           set({ lastExportPath: exportedPath })
         }
@@ -137,10 +150,40 @@ export const useScanStore = create<ScanState>((set, get) => {
       }
     },
 
+    toggleFile: (filePath: string): void => {
+      set((s) => {
+        const next = new Set(s.selectedFilePaths)
+        if (next.has(filePath)) {
+          next.delete(filePath)
+        } else {
+          next.add(filePath)
+        }
+        return { selectedFilePaths: next }
+      })
+    },
+
+    toggleAll: (filePaths: string[]): void => {
+      set((s) => {
+        const allSelected =
+          filePaths.length > 0 && filePaths.every((p) => s.selectedFilePaths.has(p))
+        const next = new Set(s.selectedFilePaths)
+        if (allSelected) {
+          for (const p of filePaths) next.delete(p)
+        } else {
+          for (const p of filePaths) next.add(p)
+        }
+        return { selectedFilePaths: next }
+      })
+    },
+
+    clearSelection: (): void => {
+      set({ selectedFilePaths: new Set<string>() })
+    },
+
     reset: (): void => {
       const off = get().unsubscribe
       if (off) off()
-      set({ ...INITIAL })
+      set({ ...INITIAL, selectedFilePaths: new Set<string>() })
     }
   }
 })

@@ -1,7 +1,7 @@
 @import './base.css';
 
 /* ────────────────────────────────────────────────────────────────────────────
- * DJ Utils — Design Tokens
+ * CrateKeeper — Design Tokens
  * Direction: dark studio. Disciplined contrast, single accent, editorial type
  * scale. The palette references control surfaces (Rekordbox, Ableton, Pioneer
  * CDJs) — not a generic "dark mode" template.
@@ -157,8 +157,12 @@ code {
   gap: var(--space-xs);
   font-size: var(--text-brand);
   font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  letter-spacing: 0.005em;
+  /*
+   * Brand is rendered in its native casing ("CrateKeeper"), not uppercased.
+   * The all-caps treatment collapsed both words into "CRATEKEEPER" and lost
+   * the camel-case boundary that makes the name readable.
+   */
 }
 
 .app-shell__brand-mark {
@@ -263,7 +267,7 @@ code {
 .folder-picker {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   justify-self: end;
   min-width: 0;
   max-width: 100%;
@@ -303,11 +307,21 @@ code {
 .folder-picker__path {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 2px;
   min-width: 0;
-  max-width: 420px;
-  flex: 0 1 auto;
+  max-width: 320px;
+  /*
+   * Path sits to the RIGHT of the button. The column must SHRINK BELOW its
+   * content's natural width on narrow viewports — otherwise the path text
+   * extends past max-width and visually overlaps adjacent siblings
+   * (or the right edge of the window).
+   * `flex: 1 1 0` lets it both grow to fill available space AND shrink
+   * down to zero when the viewport demands. Combined with overflow: hidden
+   * on the path-value below, the path ellipsizes cleanly.
+   */
+  flex: 1 1 0;
+  overflow: hidden;
 }
 
 .folder-picker__path-label {
@@ -325,6 +339,8 @@ code {
   color: var(--color-text-secondary);
   max-width: 100%;
   min-width: 0;
+  /* Clip overflowing path segments instead of bleeding under the button. */
+  overflow: hidden;
 }
 
 .folder-picker__path-head,
@@ -346,7 +362,13 @@ code {
 }
 
 .folder-picker__path-tail {
-  flex: 0 0 auto;
+  /*
+   * Tail (leaf folder name) is the "most important" segment so it shrinks
+   * LAST — but it MUST be allowed to shrink, otherwise long folder names
+   * push the rendered path past its container and overlap the button.
+   * `flex: 0 1 auto` lets it ellipsize gracefully.
+   */
+  flex: 0 1 auto;
   color: var(--color-text-primary);
 }
 
@@ -468,6 +490,18 @@ code {
   filter: brightness(1.08);
 }
 
+.scan-toolbar__button--convert {
+  background: var(--color-accent);
+  color: oklch(15% 0.02 75);
+  box-shadow: 0 0 24px -8px var(--color-accent-glow);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+
+.scan-toolbar__button--convert:hover {
+  background: var(--color-accent-strong);
+}
+
 .scan-toolbar__button--export {
   background: transparent;
   color: var(--color-text-primary);
@@ -549,7 +583,7 @@ code {
 
 .file-table__head {
   display: grid;
-  grid-template-columns: minmax(0, 2.5fr) 70px 100px 90px 100px 80px minmax(120px, 0.8fr);
+  grid-template-columns: 32px minmax(0, 2.5fr) 70px 100px 90px 100px 80px minmax(120px, 0.8fr);
   gap: var(--space-sm);
   align-items: center;
   padding: var(--space-xs) var(--space-md);
@@ -575,7 +609,7 @@ code {
 
 .file-table__row {
   display: grid;
-  grid-template-columns: minmax(0, 2.5fr) 70px 100px 90px 100px 80px minmax(120px, 0.8fr);
+  grid-template-columns: 32px minmax(0, 2.5fr) 70px 100px 90px 100px 80px minmax(120px, 0.8fr);
   gap: var(--space-sm);
   align-items: center;
   padding: 0 var(--space-md);
@@ -638,6 +672,71 @@ code {
   display: inline-flex;
   gap: var(--space-2xs);
   justify-content: flex-end;
+}
+
+.file-table__cell--select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-table__checkbox {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-base);
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out-expo),
+    border-color var(--duration-fast) var(--ease-out-expo);
+  position: relative;
+}
+
+.file-table__checkbox:hover {
+  border-color: var(--color-accent);
+}
+
+.file-table__checkbox:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.file-table__checkbox:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.file-table__checkbox:checked::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: linear-gradient(
+    -45deg,
+    transparent 0 35%,
+    oklch(15% 0.02 75) 35% 55%,
+    transparent 55% 65%,
+    oklch(15% 0.02 75) 65% 85%,
+    transparent 85% 100%
+  );
+  /* Simple checkmark via two strokes — keeps the visual editorial. */
+  -webkit-mask: linear-gradient(45deg, transparent 40%, #000 40% 55%, transparent 55%) center / 100% 60% no-repeat;
+          mask: linear-gradient(45deg, transparent 40%, #000 40% 55%, transparent 55%) center / 100% 60% no-repeat;
+}
+
+.file-table__checkbox[aria-checked='mixed'] {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.file-table__checkbox[aria-checked='mixed']::after {
+  content: '';
+  position: absolute;
+  inset: 6px 3px;
+  background: oklch(15% 0.02 75);
+  border-radius: 1px;
 }
 
 .file-table__empty {

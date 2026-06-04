@@ -7,7 +7,15 @@ import { registerDialogHandlers } from './ipc/dialog'
 import { registerSettingsHandlers } from './ipc/settings'
 import { registerScanHandlers, makeRendererSender } from './ipc/scan'
 import { createScanController } from './scan/controller'
-import { getScanRepo, getSettingsRepo } from './db/connection'
+import { getScanRepo, getSettingsRepo, getConversionRepo } from './db/connection'
+import {
+  registerConversionHandlers,
+  makeConversionSender
+} from './ipc/conversion'
+import { createConversionController } from './conversion/controller'
+import { resolveFfmpegPath } from './conversion/ffmpegPath'
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const ffmpegStatic = require('ffmpeg-static') as string
 
 let mainWindow: BrowserWindow | null = null
 
@@ -51,7 +59,7 @@ function createWindow(): BrowserWindow {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.cratekeeper.app')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -60,7 +68,7 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // Register typed IPC handlers used by the window.djUtils contextBridge.
+  // Register typed IPC handlers used by the window.crateKeeper contextBridge.
   registerDialogHandlers()
   registerSettingsHandlers()
 
@@ -80,6 +88,46 @@ app.whenReady().then(() => {
     controller: scanController,
     settingsRepo: getSettingsRepo(),
     scanRepo: getScanRepo(),
+    getSender: () => mainWindow?.webContents ?? null
+  })
+
+  // Phase 3: conversion backbone. The worker is bundled by electron-vite to
+  // out/main/workers/conversionWorker.js (Pitfall 1 carry-forward). The
+  // ffmpeg-static binary path is resolved once at controller construction
+  // and rewritten from app.asar → app.asar.unpacked in packaged builds.
+  //
+  // Construction order (Pitfall 9): the conversion controller must exist
+  // BEFORE the boot-time stale-heartbeat sweep, and the sweep must run
+  // BEFORE createWindow() so the renderer never observes a 'running' row
+  // that is actually crashed.
+  const conversionSend = makeConversionSender(
+    () => mainWindow?.webContents ?? null
+  )
+  const conversionRepo = getConversionRepo()
+  const conversionController = createConversionController({
+    spawnWorker: (data) =>
+      new Worker(join(__dirname, 'workers/conversionWorker.js'), {
+        workerData: data
+      }),
+    repo: conversionRepo,
+    send: conversionSend,
+    resolveFfmpegPath,
+    getFfmpegRawPath: () => ffmpegStatic,
+    isPackaged: app.isPackaged
+  })
+
+  // Pitfall 9: boot-time crash detection. Runs ONCE before createWindow().
+  // Threshold = 30s (Pitfall 6: safe given default heartbeat = 5s).
+  conversionController.markStaleAsCrashed({
+    thresholdMs: 30_000,
+    now: Date.now()
+  })
+
+  registerConversionHandlers({
+    ipcMain,
+    controller: conversionController,
+    repo: conversionRepo,
+    settingsRepo: getSettingsRepo(),
     getSender: () => mainWindow?.webContents ?? null
   })
 

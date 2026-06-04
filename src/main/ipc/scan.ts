@@ -45,7 +45,7 @@ export async function scanCancelHandler(deps: ScanHandlerDeps, scanId: unknown):
 }
 
 /**
- * Pure: formats a Date as `dj-utils-scan-YYYYMMDD-HHmm.csv` using UTC components
+ * Pure: formats a Date as `cratekeeper-scan-YYYYMMDD-HHmm.csv` using UTC components
  * so the output is deterministic across host timezones (and trivially testable).
  */
 export function defaultCsvFilename(now: Date = new Date()): string {
@@ -55,7 +55,7 @@ export function defaultCsvFilename(now: Date = new Date()): string {
   const dd = pad(now.getUTCDate())
   const hh = pad(now.getUTCHours())
   const mi = pad(now.getUTCMinutes())
-  return `dj-utils-scan-${yyyy}${mm}${dd}-${hh}${mi}.csv`
+  return `cratekeeper-scan-${yyyy}${mm}${dd}-${hh}${mi}.csv`
 }
 
 /** Minimal subset of electron.dialog used by scanExportCsvHandler. */

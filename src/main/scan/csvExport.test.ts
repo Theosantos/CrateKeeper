@@ -89,7 +89,7 @@ function makeRow(overrides: Partial<ScannedFile> = {}): ScannedFile {
 const tempPaths: string[] = []
 
 function tempCsvPath(): string {
-  const p = path.join(tmpdir(), `dj-utils-csv-${randomUUID()}.csv`)
+  const p = path.join(tmpdir(), `cratekeeper-csv-${randomUUID()}.csv`)
   tempPaths.push(p)
   return p
 }

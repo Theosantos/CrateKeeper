@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { DjUtilsApi, ScanEvent, ScannedFile } from '../../../shared/ipc-types'
+import type { CrateKeeperApi, ScanEvent, ScannedFile } from '../../../shared/ipc-types'
 import { useScanStore } from './useScanStore'
 
 type ScanCallback = (e: ScanEvent) => void
 
 type MockedScanApi = {
-  start: ReturnType<typeof vi.fn<DjUtilsApi['scan']['start']>>
-  cancel: ReturnType<typeof vi.fn<DjUtilsApi['scan']['cancel']>>
-  exportCsv: ReturnType<typeof vi.fn<DjUtilsApi['scan']['exportCsv']>>
-  onEvent: ReturnType<typeof vi.fn<DjUtilsApi['scan']['onEvent']>>
+  start: ReturnType<typeof vi.fn<CrateKeeperApi['scan']['start']>>
+  cancel: ReturnType<typeof vi.fn<CrateKeeperApi['scan']['cancel']>>
+  exportCsv: ReturnType<typeof vi.fn<CrateKeeperApi['scan']['exportCsv']>>
+  onEvent: ReturnType<typeof vi.fn<CrateKeeperApi['scan']['onEvent']>>
   /** captured callback registered by the store on subscribe */
   emit: (e: ScanEvent) => void
   /** vi.fn() returned as unsubscribe — test asserts on .mock.calls */
@@ -18,22 +18,31 @@ type MockedScanApi = {
 function installScanMock(scanId = 'scan-1'): MockedScanApi {
   let registered: ScanCallback | null = null
   const unsubscribe = vi.fn()
-  const onEvent = vi.fn<DjUtilsApi['scan']['onEvent']>((cb) => {
+  const onEvent = vi.fn<CrateKeeperApi['scan']['onEvent']>((cb) => {
     registered = cb
     return unsubscribe
   })
-  const start = vi.fn<DjUtilsApi['scan']['start']>().mockResolvedValue(scanId)
-  const cancel = vi.fn<DjUtilsApi['scan']['cancel']>().mockResolvedValue(undefined)
+  const start = vi.fn<CrateKeeperApi['scan']['start']>().mockResolvedValue(scanId)
+  const cancel = vi.fn<CrateKeeperApi['scan']['cancel']>().mockResolvedValue(undefined)
   const exportCsv = vi
-    .fn<DjUtilsApi['scan']['exportCsv']>()
+    .fn<CrateKeeperApi['scan']['exportCsv']>()
     .mockResolvedValue(null)
 
   const api = { start, cancel, exportCsv, onEvent }
-  globalThis.window.djUtils = {
+  globalThis.window.crateKeeper = {
     pickFolder: vi.fn().mockResolvedValue(null),
     getRootFolder: vi.fn().mockResolvedValue(null),
     setRootFolder: vi.fn().mockResolvedValue(undefined),
-    scan: api as unknown as DjUtilsApi['scan']
+    getSetting: vi.fn().mockResolvedValue(null),
+    setSetting: vi.fn().mockResolvedValue(undefined),
+    scan: api as unknown as CrateKeeperApi['scan'],
+    conversion: {
+      start: vi.fn().mockResolvedValue(''),
+      cancel: vi.fn().mockResolvedValue(undefined),
+      listResumable: vi.fn().mockResolvedValue([]),
+      resume: vi.fn().mockResolvedValue(undefined),
+      onEvent: vi.fn().mockReturnValue(() => {})
+    } as unknown as CrateKeeperApi['conversion']
   }
 
   return {
@@ -76,7 +85,8 @@ describe('useScanStore', () => {
       durationMs: null,
       error: null,
       exporting: false,
-      lastExportPath: null
+      lastExportPath: null,
+      selectedFilePaths: new Set<string>()
     })
   })
 
@@ -207,16 +217,16 @@ describe('useScanStore', () => {
       expect(api.exportCsv).not.toHaveBeenCalled()
     })
 
-    it('calls window.djUtils.scan.exportCsv(scanId) and returns the path on success', async () => {
+    it('calls window.crateKeeper.scan.exportCsv(scanId) and returns the path on success', async () => {
       const api = installScanMock('scan-A')
-      api.exportCsv.mockResolvedValue('/tmp/dj-utils.csv')
+      api.exportCsv.mockResolvedValue('/tmp/cratekeeper.csv')
       await useScanStore.getState().start('/music')
       api.emit({ type: 'done', scanId: 'scan-A', totalFiles: 3, durationMs: 100 })
 
       const result = await useScanStore.getState().exportCsv()
       expect(api.exportCsv).toHaveBeenCalledWith('scan-A')
-      expect(result).toBe('/tmp/dj-utils.csv')
-      expect(useScanStore.getState().lastExportPath).toBe('/tmp/dj-utils.csv')
+      expect(result).toBe('/tmp/cratekeeper.csv')
+      expect(useScanStore.getState().lastExportPath).toBe('/tmp/cratekeeper.csv')
       // exporting flag must be cleared after the promise resolves
       expect(useScanStore.getState().exporting).toBe(false)
     })
@@ -244,6 +254,76 @@ describe('useScanStore', () => {
       const firstResult = await first
       expect(firstResult).toBe('/tmp/x.csv')
       expect(useScanStore.getState().exporting).toBe(false)
+    })
+  })
+
+  describe('selection (Plan 03-02)', () => {
+    it('starts with an empty selectedFilePaths Set', () => {
+      const s = useScanStore.getState()
+      expect(s.selectedFilePaths).toBeInstanceOf(Set)
+      expect(s.selectedFilePaths.size).toBe(0)
+    })
+
+    it('toggleFile adds then removes a path; each call produces a NEW Set instance', () => {
+      const before = useScanStore.getState().selectedFilePaths
+      useScanStore.getState().toggleFile('/Music/a.mp3')
+      const after1 = useScanStore.getState().selectedFilePaths
+      expect(after1.has('/Music/a.mp3')).toBe(true)
+      expect(after1).not.toBe(before)
+
+      useScanStore.getState().toggleFile('/Music/a.mp3')
+      const after2 = useScanStore.getState().selectedFilePaths
+      expect(after2.has('/Music/a.mp3')).toBe(false)
+      expect(after2).not.toBe(after1)
+    })
+
+    it('toggleAll selects all when none selected, deselects when all selected, selects all when partial', () => {
+      const paths = ['/a.mp3', '/b.mp3', '/c.mp3']
+      // none → all
+      useScanStore.getState().toggleAll(paths)
+      let s = useScanStore.getState().selectedFilePaths
+      expect(s.size).toBe(3)
+      paths.forEach((p) => expect(s.has(p)).toBe(true))
+
+      // all → none
+      useScanStore.getState().toggleAll(paths)
+      s = useScanStore.getState().selectedFilePaths
+      expect(s.size).toBe(0)
+
+      // partial → all (only one selected)
+      useScanStore.getState().toggleFile('/a.mp3')
+      useScanStore.getState().toggleAll(paths)
+      s = useScanStore.getState().selectedFilePaths
+      expect(s.size).toBe(3)
+    })
+
+    it('clearSelection empties the set', () => {
+      useScanStore.getState().toggleFile('/a.mp3')
+      useScanStore.getState().toggleFile('/b.mp3')
+      expect(useScanStore.getState().selectedFilePaths.size).toBe(2)
+      useScanStore.getState().clearSelection()
+      expect(useScanStore.getState().selectedFilePaths.size).toBe(0)
+    })
+
+    it('starting a new scan resets selectedFilePaths to empty', async () => {
+      useScanStore.getState().toggleFile('/a.mp3')
+      useScanStore.getState().toggleFile('/b.mp3')
+      expect(useScanStore.getState().selectedFilePaths.size).toBe(2)
+
+      installScanMock('scan-X')
+      await useScanStore.getState().start('/music')
+      expect(useScanStore.getState().selectedFilePaths.size).toBe(0)
+    })
+
+    it('selectedFilePaths persists across unrelated state updates (e.g., rows events)', async () => {
+      const api = installScanMock('scan-A')
+      await useScanStore.getState().start('/music')
+      useScanStore.getState().toggleFile('/x.mp3')
+      expect(useScanStore.getState().selectedFilePaths.has('/x.mp3')).toBe(true)
+
+      api.emit({ type: 'rows', scanId: 'scan-A', rows: [makeRow(1)] })
+      expect(useScanStore.getState().selectedFilePaths.has('/x.mp3')).toBe(true)
+      expect(useScanStore.getState().rows.length).toBe(1)
     })
   })
 

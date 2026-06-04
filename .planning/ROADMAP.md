@@ -8,7 +8,7 @@
 
 - [x] **Phase 1: Foundation** - App shell, IPC bridge, folder picker, SQLite persistence
 - [x] **Phase 2: File Scanning & Library View** - Chunked audio scan, metadata display, tag status indicators, CSV export (completed 2026-05-29)
-- [ ] **Phase 3: FFmpeg Conversion Pipeline** - Batch conversion, progress tracking, resume, tag preservation
+- [x] **Phase 3: FFmpeg Conversion Pipeline** - Batch conversion, progress tracking, resume, tag preservation (completed 2026-06-03)
 - [ ] **Phase 4: Tagger Core** - Swipe-style tagging queue, audio previews, inline editing, session resume
 - [ ] **Phase 5: Tag Writing & Rekordbox Compatibility** - Atomic ID3v2.3/MP4 writes, Rekordbox-compatible fields
 - [ ] **Phase 6: Distribution** - Signed .dmg and .exe installers with bundled FFmpeg
@@ -55,7 +55,10 @@
   3. If one file fails to convert, an error is shown for that file and the rest of the batch continues
   4. User interrupts a conversion mid-batch, relaunches, and resumes from where it stopped without re-converting completed files
   5. Converted files retain their original ID3/MP4 tags
-**Plans**: TBD
+**Plans**: 3 plans
+  - [x] 03-01-PLAN.md — Conversion backbone: typed IPC bridge, conversions+conversion_files schema, presets registry, conversionCore + conversionWorker (ffmpeg pool, SIGTERM-first cancel), ConversionController (single-active, heartbeat), folder allowlist gate, tag round-trip integration test
+  - [x] 03-02-PLAN.md — Convertir UI vertical slice: checkbox column + select-all in VirtualizedFileTable, Convertir N fichiers toolbar action, useConversionStore, ConvertirView with PresetSelector + Custom form + live per-file + global progress + summary
+  - [x] 03-03-PLAN.md — Resume after crash (CONV-05): boot-time stale-heartbeat sweep, list-resumable/resume/discard handlers, controller.resume re-spawning with original preset, ResumeBanner with Reprendre / Ignorer (supprimer)
 
 ### Phase 4: Tagger Core
 **Goal:** Users can work through a queue of untagged files one by one — hearing a preview, editing metadata inline, keeping or skipping — with session resume and undo.
@@ -102,7 +105,7 @@
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete | 2026-05-29 |
 | 2. File Scanning & Library View | 3/3 | Complete   | 2026-05-29 |
-| 3. FFmpeg Conversion Pipeline | 0/? | Not started | - |
+| 3. FFmpeg Conversion Pipeline | 3/3 | Complete   | 2026-06-03 |
 | 4. Tagger Core | 0/? | Not started | - |
 | 5. Tag Writing & Rekordbox Compatibility | 0/? | Not started | - |
 | 6. Distribution | 0/? | Not started | - |

@@ -1,10 +1,19 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IpcChannels, type DjUtilsApi, type ScanEvent } from '../shared/ipc-types'
+import {
+  IpcChannels,
+  type CrateKeeperApi,
+  type ScanEvent,
+  type ConversionEvent,
+  type Preset,
+  type ResumableBatch
+} from '../shared/ipc-types'
 
-const djUtils: DjUtilsApi = {
+const crateKeeper: CrateKeeperApi = {
   pickFolder: () => ipcRenderer.invoke(IpcChannels.PickFolder),
   getRootFolder: () => ipcRenderer.invoke(IpcChannels.GetRootFolder),
   setRootFolder: (path: string) => ipcRenderer.invoke(IpcChannels.SetRootFolder, path),
+  getSetting: (key) => ipcRenderer.invoke(IpcChannels.GetSetting, key),
+  setSetting: (key, value) => ipcRenderer.invoke(IpcChannels.SetSetting, key, value),
   scan: {
     start: (folder: string) => ipcRenderer.invoke(IpcChannels.ScanStart, folder),
     cancel: (scanId: string) => ipcRenderer.invoke(IpcChannels.ScanCancel, scanId),
@@ -16,6 +25,27 @@ const djUtils: DjUtilsApi = {
         ipcRenderer.off(IpcChannels.ScanEvent, handler)
       }
     }
+  },
+  conversion: {
+    start: (params: { rootFolder: string; filePaths: string[]; preset: Preset }) =>
+      ipcRenderer.invoke(IpcChannels.ConversionStart, params),
+    cancel: (conversionId: string) =>
+      ipcRenderer.invoke(IpcChannels.ConversionCancel, conversionId),
+    listResumable: (): Promise<ResumableBatch[]> =>
+      ipcRenderer.invoke(IpcChannels.ConversionListResumable),
+    resume: (conversionId: string) =>
+      ipcRenderer.invoke(IpcChannels.ConversionResume, conversionId),
+    discard: (conversionId: string) =>
+      ipcRenderer.invoke(IpcChannels.ConversionDiscard, conversionId),
+    pickFiles: (): Promise<string[] | null> =>
+      ipcRenderer.invoke(IpcChannels.ConversionPickFiles),
+    onEvent: (cb: (e: ConversionEvent) => void) => {
+      const handler = (_: unknown, e: ConversionEvent): void => cb(e)
+      ipcRenderer.on(IpcChannels.ConversionEvent, handler)
+      return () => {
+        ipcRenderer.off(IpcChannels.ConversionEvent, handler)
+      }
+    }
   }
 }
 
@@ -23,11 +53,11 @@ const djUtils: DjUtilsApi = {
 // The window.* fallback is kept for the (currently unused) isolation-off case.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('djUtils', djUtils)
+    contextBridge.exposeInMainWorld('crateKeeper', crateKeeper)
   } catch (error) {
     console.error(error)
   }
 } else {
   // @ts-ignore (define in dts)
-  window.djUtils = djUtils
+  window.crateKeeper = crateKeeper
 }
