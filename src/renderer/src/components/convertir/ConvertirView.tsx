@@ -84,14 +84,24 @@ export function ConvertirView(): React.JSX.Element {
     void useConversionStore.getState().cancelBatch()
   }
 
+  async function handlePickFiles(): Promise<void> {
+    const picked = await window.djUtils.conversion.pickFiles()
+    if (picked === null) return
+    if (picked.length === 0) return
+    useConversionStore.getState().seedFilePaths(picked)
+  }
+
   const count = pendingFilePaths.length
+  const showEmptyState = !isRunning && count === 0 && status !== 'done'
 
   return (
     <section className="view view--convertir" aria-labelledby="view-convertir-heading">
       <header className="view__header convertir__header">
         <p className="view__eyebrow">Phase 3</p>
         <h2 id="view-convertir-heading" className="view__title">
-          Convertir {count} fichier{count > 1 ? 's' : ''}
+          {count === 0
+            ? 'Convertir'
+            : `Convertir ${count} fichier${count > 1 ? 's' : ''}`}
         </h2>
         <button
           type="button"
@@ -109,7 +119,39 @@ export function ConvertirView(): React.JSX.Element {
           {isCustom ? <CustomPresetForm /> : null}
         </div>
 
-        <ConversionProgress />
+        {showEmptyState ? (
+          <div className="convertir__empty">
+            <h3 className="convertir__empty-title">Aucun fichier sélectionné</h3>
+            <p className="convertir__empty-hint">
+              Choisis des fichiers audio à convertir directement, ou passe par
+              l’Analyser pour sélectionner depuis un scan existant.
+            </p>
+            <div className="convertir__empty-actions">
+              <button
+                type="button"
+                className="convertir__action convertir__action--launch"
+                onClick={() => void handlePickFiles()}
+                disabled={rootFolder === null}
+              >
+                Choisir des fichiers
+              </button>
+              <button
+                type="button"
+                className="convertir__back"
+                onClick={() => setActiveTool('analyser')}
+              >
+                Ouvrir l’Analyser →
+              </button>
+            </div>
+            {rootFolder === null ? (
+              <p className="convertir__empty-warn" role="alert">
+                Sélectionne d’abord un dossier racine depuis l’Analyser.
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <ConversionProgress />
+        )}
 
         <div className="convertir__actions">
           {isRunning ? (

@@ -56,6 +56,7 @@ function installBridge(overrides: Partial<DjUtilsApi> = {}): Bridge {
       listResumable: vi.fn().mockResolvedValue([]),
       resume: vi.fn().mockResolvedValue(undefined),
       discard: vi.fn().mockResolvedValue(undefined),
+      pickFiles: vi.fn().mockResolvedValue(null),
       onEvent: vi.fn((cb) => {
         registered = cb
         return unsubscribe
@@ -109,6 +110,72 @@ describe('ConvertirView', () => {
     render(<ConvertirView />)
     const btn = screen.getByRole('button', { name: /^lancer$/i }) as HTMLButtonElement
     expect(btn.disabled).toBe(true)
+  })
+
+  it('empty state renders Choisir des fichiers + Ouvrir l’Analyser when no selection', () => {
+    render(<ConvertirView />)
+    expect(screen.getByText(/Aucun fichier sélectionné/i)).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Choisir des fichiers/i })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Ouvrir l’Analyser/i })
+    ).toBeInTheDocument()
+  })
+
+  it('clicking Choisir des fichiers calls conversion.pickFiles and seeds the store', async () => {
+    const pickFilesMock = vi
+      .fn()
+      .mockResolvedValue(['/music/a.mp3', '/music/b.flac'])
+    installBridge({
+      conversion: {
+        start: vi.fn().mockResolvedValue('conv-x'),
+        cancel: vi.fn().mockResolvedValue(undefined),
+        listResumable: vi.fn().mockResolvedValue([]),
+        resume: vi.fn().mockResolvedValue(undefined),
+        discard: vi.fn().mockResolvedValue(undefined),
+        pickFiles: pickFilesMock,
+        onEvent: vi.fn().mockReturnValue(() => {})
+      }
+    })
+    resetStores()
+    render(<ConvertirView />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Choisir des fichiers/i }))
+
+    await waitFor(() => {
+      expect(pickFilesMock).toHaveBeenCalledTimes(1)
+    })
+    await waitFor(() => {
+      expect(useConversionStore.getState().pendingFilePaths).toEqual([
+        '/music/a.mp3',
+        '/music/b.flac'
+      ])
+    })
+  })
+
+  it('Choisir des fichiers no-ops when pickFiles returns null (user cancelled)', async () => {
+    const pickFilesMock = vi.fn().mockResolvedValue(null)
+    installBridge({
+      conversion: {
+        start: vi.fn().mockResolvedValue(''),
+        cancel: vi.fn().mockResolvedValue(undefined),
+        listResumable: vi.fn().mockResolvedValue([]),
+        resume: vi.fn().mockResolvedValue(undefined),
+        discard: vi.fn().mockResolvedValue(undefined),
+        pickFiles: pickFilesMock,
+        onEvent: vi.fn().mockReturnValue(() => {})
+      }
+    })
+    resetStores()
+    render(<ConvertirView />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Choisir des fichiers/i }))
+
+    await waitFor(() => {
+      expect(pickFilesMock).toHaveBeenCalled()
+    })
+    expect(useConversionStore.getState().pendingFilePaths).toEqual([])
   })
 
   it('Lancer button enabled when pending paths present; clicking calls conversion.start + persists preset', async () => {
@@ -296,6 +363,7 @@ describe('ConvertirView', () => {
         ]),
         resume: vi.fn().mockResolvedValue(undefined),
         discard: vi.fn().mockResolvedValue(undefined),
+        pickFiles: vi.fn().mockResolvedValue(null),
         onEvent: vi.fn().mockReturnValue(() => {})
       } as DjUtilsApi['conversion']
     })
@@ -340,6 +408,7 @@ describe('ConvertirView', () => {
         ]),
         resume: resumeMock,
         discard: vi.fn().mockResolvedValue(undefined),
+        pickFiles: vi.fn().mockResolvedValue(null),
         onEvent: vi.fn().mockReturnValue(() => {})
       } as DjUtilsApi['conversion']
     })
@@ -387,6 +456,7 @@ describe('ConvertirView', () => {
         ]),
         resume: vi.fn().mockResolvedValue(undefined),
         discard: discardMock,
+        pickFiles: vi.fn().mockResolvedValue(null),
         onEvent: vi.fn().mockReturnValue(() => {})
       } as DjUtilsApi['conversion']
     })
@@ -433,6 +503,7 @@ describe('ConvertirView', () => {
         ]),
         resume: vi.fn().mockResolvedValue(undefined),
         discard: vi.fn().mockResolvedValue(undefined),
+        pickFiles: vi.fn().mockResolvedValue(null),
         onEvent: vi.fn().mockReturnValue(() => {})
       } as DjUtilsApi['conversion']
     })

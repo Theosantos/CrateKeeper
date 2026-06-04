@@ -120,6 +120,46 @@
   color: var(--color-badge-error);
 }
 
+/* ── Empty state (independent Convertir entry) ────────────────────────────── */
+
+.convertir__empty {
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--color-surface-raised);
+  border: var(--hairline);
+  border-radius: var(--radius-md);
+  align-self: start;
+}
+
+.convertir__empty-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.convertir__empty-hint {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.convertir__empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  align-items: center;
+}
+
+.convertir__empty-warn {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-badge-error);
+}
+
 /* ── Resume banner (Plan 03-03 / CONV-05) ─────────────────────────────────── */
 
 .resume-banner {

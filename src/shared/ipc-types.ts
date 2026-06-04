@@ -28,6 +28,14 @@ export const IpcChannels = {
   ConversionListResumable: 'conversion:list-resumable',
   ConversionResume: 'conversion:resume',
   ConversionDiscard: 'conversion:discard',
+  /**
+   * Independent-entry file picker. Opens an OS dialog rooted at the persisted
+   * rootFolder and returns the multi-selected audio file paths after the same
+   * folder-allowlist + AUDIO_EXTS gate as ConversionStart (T-3-01, T-3-08).
+   * Used by the Convertir view when the user enters that tool directly
+   * (without going through Analyser → checkbox flow).
+   */
+  ConversionPickFiles: 'conversion:pick-files',
   /** main → renderer push channel; not invoked from the renderer. */
   ConversionEvent: 'conversion:event'
 } as const
@@ -146,6 +154,13 @@ export interface DjUtilsConversionApi {
    * rows. Idempotent — discarding a non-existent id is a no-op.
    */
   discard(conversionId: string): Promise<void>
+  /**
+   * Opens an OS file dialog for picking audio files directly from the
+   * Convertir view. Returns the selected paths that pass the rootFolder
+   * allowlist + AUDIO_EXTS gate (entries failing the gate are dropped).
+   * Returns null when the user cancels the dialog.
+   */
+  pickFiles(): Promise<string[] | null>
   /** Subscribes to conversion:event pushes; returns an unsubscribe closure. */
   onEvent(cb: (e: ConversionEvent) => void): () => void
 }

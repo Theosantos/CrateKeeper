@@ -202,6 +202,62 @@ export async function conversionResumeHandler(
 }
 
 /**
+ * conversion:pick-files handler — opens an OS file dialog so the user can
+ * pick audio files directly from the Convertir view (independent-entry
+ * flow). Applies the same folder-allowlist + AUDIO_EXTS gate as
+ * conversionStartHandler: entries failing either check are silently dropped
+ * (the renderer surfaces an info toast when the returned list is shorter
+ * than the selection).
+ *
+ * Returns null when the user cancels the dialog.
+ *
+ * `dialog` and `BrowserWindow` are injected so vitest can run this handler
+ * without a real Electron context.
+ */
+export interface ConversionPickFilesHandlerDeps {
+  settingsRepo: SettingsRepo
+  showOpenDialog: (opts: {
+    defaultPath?: string
+    properties: Array<'openFile' | 'multiSelections'>
+    filters: Array<{ name: string; extensions: string[] }>
+  }) => Promise<{ canceled: boolean; filePaths: string[] }>
+}
+
+export async function conversionPickFilesHandler(
+  deps: ConversionPickFilesHandlerDeps
+): Promise<string[] | null> {
+  const persisted = deps.settingsRepo.get(ROOT_FOLDER_KEY)
+  if (persisted === null) {
+    throw new Error(`${IpcChannels.ConversionPickFiles}: no rootFolder configured`)
+  }
+
+  // AUDIO_EXTS is like ['.mp3', '.flac', ...]; the dialog filter wants
+  // extensions without the leading dot.
+  const exts = AUDIO_EXTS.map((e) => e.replace(/^\./, ''))
+
+  const result = await deps.showOpenDialog({
+    defaultPath: persisted,
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Fichiers audio', extensions: exts }]
+  })
+
+  if (result.canceled) return null
+
+  // Defence-in-depth: re-apply the same gates as ConversionStart even though
+  // the dialog filter restricts visible files (user could type a path manually
+  // on some platforms or pre-existing symlinks could escape).
+  const accepted: string[] = []
+  for (const f of result.filePaths) {
+    if (typeof f !== 'string') continue
+    if (!resolvesUnderRoot(f, persisted)) continue
+    const ext = path.extname(f).toLowerCase()
+    if (!(AUDIO_EXTS as readonly string[]).includes(ext)) continue
+    accepted.push(f)
+  }
+  return accepted
+}
+
+/**
  * conversion:discard handler — Plan 03-03 "Ignorer (supprimer)" path.
  *
  * V5: validates `typeof id === 'string'` (T-3-14). Delegates to
@@ -223,6 +279,12 @@ export interface RegisterConversionHandlersOpts extends ConversionStartHandlerDe
   ipcMain: IpcMain
   repo: ConversionRepo
   getSender: () => WebContents | null
+  /**
+   * Optional injection point for tests. In production, the real Electron
+   * `dialog.showOpenDialog` is loaded lazily via `require('electron').dialog`
+   * so vitest can import this module without a working Electron context.
+   */
+  showOpenDialog?: ConversionPickFilesHandlerDeps['showOpenDialog']
 }
 
 /**
@@ -259,6 +321,24 @@ export function registerConversionHandlers(opts: RegisterConversionHandlersOpts)
   opts.ipcMain.handle(
     IpcChannels.ConversionDiscard,
     (_e: IpcMainInvokeEvent, id: unknown) => conversionDiscardHandler(repoDeps, id)
+  )
+
+  // Lazy-require electron's dialog so vitest can import this module without
+  // a real Electron context (mirrors the lazy-require pattern in scan IPC).
+  const showOpenDialog: ConversionPickFilesHandlerDeps['showOpenDialog'] =
+    opts.showOpenDialog ??
+    (async (dialogOpts) => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { dialog } = require('electron') as typeof import('electron')
+      return dialog.showOpenDialog(dialogOpts)
+    })
+
+  const pickFilesDeps: ConversionPickFilesHandlerDeps = {
+    settingsRepo: opts.settingsRepo,
+    showOpenDialog
+  }
+  opts.ipcMain.handle(IpcChannels.ConversionPickFiles, () =>
+    conversionPickFilesHandler(pickFilesDeps)
   )
 }
 

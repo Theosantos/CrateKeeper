@@ -37,6 +37,8 @@ const djUtils: DjUtilsApi = {
       ipcRenderer.invoke(IpcChannels.ConversionResume, conversionId),
     discard: (conversionId: string) =>
       ipcRenderer.invoke(IpcChannels.ConversionDiscard, conversionId),
+    pickFiles: (): Promise<string[] | null> =>
+      ipcRenderer.invoke(IpcChannels.ConversionPickFiles),
     onEvent: (cb: (e: ConversionEvent) => void) => {
       const handler = (_: unknown, e: ConversionEvent): void => cb(e)
       ipcRenderer.on(IpcChannels.ConversionEvent, handler)

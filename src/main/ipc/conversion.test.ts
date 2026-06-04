@@ -7,6 +7,7 @@ import {
   conversionListResumableHandler,
   conversionResumeHandler,
   conversionDiscardHandler,
+  conversionPickFilesHandler,
   registerConversionHandlers,
   type ConversionStartHandlerDeps
 } from './conversion'
@@ -324,8 +325,78 @@ describe('conversionDiscardHandler — Plan 03-03', () => {
   })
 })
 
+describe('conversionPickFilesHandler — independent Convertir entry', () => {
+  it('returns null when the user cancels the dialog', async () => {
+    const showOpenDialog = vi
+      .fn()
+      .mockResolvedValue({ canceled: true, filePaths: [] })
+    const settingsRepo = makeSettingsRepo('/Music')
+    const result = await conversionPickFilesHandler({ settingsRepo, showOpenDialog })
+    expect(result).toBeNull()
+    expect(showOpenDialog).toHaveBeenCalledTimes(1)
+  })
+
+  it('passes rootFolder as defaultPath and AUDIO_EXTS as filters', async () => {
+    const showOpenDialog = vi
+      .fn()
+      .mockResolvedValue({ canceled: true, filePaths: [] })
+    const settingsRepo = makeSettingsRepo('/Music')
+    await conversionPickFilesHandler({ settingsRepo, showOpenDialog })
+    const opts = showOpenDialog.mock.calls[0][0]
+    expect(opts.defaultPath).toBe('/Music')
+    expect(opts.properties).toContain('openFile')
+    expect(opts.properties).toContain('multiSelections')
+    expect(opts.filters[0].extensions).toEqual(
+      expect.arrayContaining(['mp3', 'flac', 'aac', 'm4a', 'wav'])
+    )
+    // Extensions must NOT carry leading dots (Electron's API spec).
+    for (const ext of opts.filters[0].extensions) {
+      expect(ext.startsWith('.')).toBe(false)
+    }
+  })
+
+  it('returns the picked paths when they all resolve under rootFolder', async () => {
+    const showOpenDialog = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePaths: ['/Music/a.mp3', '/Music/sub/b.flac']
+    })
+    const settingsRepo = makeSettingsRepo('/Music')
+    const result = await conversionPickFilesHandler({ settingsRepo, showOpenDialog })
+    expect(result).toEqual(['/Music/a.mp3', '/Music/sub/b.flac'])
+  })
+
+  it('drops paths outside rootFolder (defence-in-depth, T-3-01)', async () => {
+    const showOpenDialog = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePaths: ['/Music/ok.mp3', '/Evil/escape.mp3', '/Music/../etc/passwd.mp3']
+    })
+    const settingsRepo = makeSettingsRepo('/Music')
+    const result = await conversionPickFilesHandler({ settingsRepo, showOpenDialog })
+    expect(result).toEqual(['/Music/ok.mp3'])
+  })
+
+  it('drops paths with non-AUDIO_EXTS extensions (defence-in-depth, T-3-08)', async () => {
+    const showOpenDialog = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePaths: ['/Music/a.mp3', '/Music/cover.png', '/Music/notes.txt']
+    })
+    const settingsRepo = makeSettingsRepo('/Music')
+    const result = await conversionPickFilesHandler({ settingsRepo, showOpenDialog })
+    expect(result).toEqual(['/Music/a.mp3'])
+  })
+
+  it('throws when rootFolder is not configured', async () => {
+    const showOpenDialog = vi.fn()
+    const settingsRepo = makeSettingsRepo(null)
+    await expect(
+      conversionPickFilesHandler({ settingsRepo, showOpenDialog })
+    ).rejects.toThrow(/no rootFolder configured/)
+    expect(showOpenDialog).not.toHaveBeenCalled()
+  })
+})
+
 describe('registerConversionHandlers', () => {
-  it('registers exactly 5 ipcMain.handle channels (Plan 03-03 adds Discard)', () => {
+  it('registers exactly 6 ipcMain.handle channels (Plan 03-03 added Discard, post-UAT added PickFiles)', () => {
     const handle = vi.fn()
     const ipcMain = { handle } as unknown as Parameters<typeof registerConversionHandlers>[0]['ipcMain']
     const controller = makeController()
@@ -344,7 +415,8 @@ describe('registerConversionHandlers', () => {
     expect(channels).toContain(IpcChannels.ConversionListResumable)
     expect(channels).toContain(IpcChannels.ConversionResume)
     expect(channels).toContain(IpcChannels.ConversionDiscard)
-    expect(handle).toHaveBeenCalledTimes(5)
+    expect(channels).toContain(IpcChannels.ConversionPickFiles)
+    expect(handle).toHaveBeenCalledTimes(6)
   })
 })
 
