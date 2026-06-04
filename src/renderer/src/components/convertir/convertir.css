@@ -463,7 +463,15 @@
 
 .conversion-progress__row {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) 1fr auto minmax(0, 1fr);
+  /*
+   * Badge column is FIXED width (not `auto`) so the progress bar's right
+   * edge stays put when the status label changes between "EN ATTENTE" /
+   * "EN COURS" / "CONVERTI" / "ERREUR" / "IGNORÉ" / "ANNULÉ" — each label
+   * has a different natural width, and `auto` would let the bar shift
+   * horizontally as the badge text changed.
+   * Width = badge min-width (96px) + a hair for breathing room.
+   */
+  grid-template-columns: minmax(0, 1.5fr) 1fr 100px minmax(0, 1fr);
   gap: var(--space-sm);
   align-items: center;
   padding: var(--space-2xs) 0;
@@ -507,7 +515,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 70px;
+  /* Width is owned by the parent grid track (100px). The min-width here is
+   * defence-in-depth in case the badge ever gets rendered outside the row
+   * grid (e.g., in a tooltip or test snapshot). */
+  width: 100%;
+  min-width: 96px;
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
