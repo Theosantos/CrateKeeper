@@ -1,7 +1,7 @@
 /**
- * Shared IPC types for the contextBridge `window.djUtils` API.
+ * Shared IPC types for the contextBridge `window.crateKeeper` API.
  * Imported by main (handler registration), preload (bridge exposure),
- * and renderer (typed window.djUtils).
+ * and renderer (typed window.crateKeeper).
  */
 
 /** Channel names — single source of truth so main + preload never drift. */
@@ -64,7 +64,7 @@ export type ScanEvent =
   | { type: 'error'; scanId: string; message: string }
   | { type: 'cancelled'; scanId: string }
 
-export interface DjUtilsScanApi {
+export interface CrateKeeperScanApi {
   start(folder: string): Promise<string>
   cancel(scanId: string): Promise<void>
   exportCsv(scanId: string): Promise<string | null>
@@ -140,7 +140,7 @@ export interface ResumableBatch {
   startedAt: number
 }
 
-export interface DjUtilsConversionApi {
+export interface CrateKeeperConversionApi {
   start(params: {
     rootFolder: string
     filePaths: string[]
@@ -173,7 +173,7 @@ export interface DjUtilsConversionApi {
 export const SETTINGS_KEY_ALLOWLIST = ['conversion.lastPreset'] as const
 export type AllowedSettingKey = (typeof SETTINGS_KEY_ALLOWLIST)[number]
 
-export interface DjUtilsApi {
+export interface CrateKeeperApi {
   pickFolder(): Promise<string | null>
   getRootFolder(): Promise<string | null>
   setRootFolder(path: string): Promise<void>
@@ -181,12 +181,12 @@ export interface DjUtilsApi {
   getSetting(key: AllowedSettingKey): Promise<string | null>
   /** Generic K/V settings write; key must be in the allowlist. */
   setSetting(key: AllowedSettingKey, value: string): Promise<void>
-  scan: DjUtilsScanApi
-  conversion: DjUtilsConversionApi
+  scan: CrateKeeperScanApi
+  conversion: CrateKeeperConversionApi
 }
 
 declare global {
   interface Window {
-    djUtils: DjUtilsApi
+    crateKeeper: CrateKeeperApi
   }
 }

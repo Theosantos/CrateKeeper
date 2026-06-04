@@ -11,7 +11,7 @@ type AppState = {
 }
 
 // The renderer holds no Node/electron access (RESEARCH anti-pattern).
-// Every privileged call routes through the typed contextBridge bridge: window.djUtils.
+// Every privileged call routes through the typed contextBridge bridge: window.crateKeeper.
 export const useAppStore = create<AppState>((set) => ({
   activeTool: 'analyser',
   rootFolder: null,
@@ -19,14 +19,14 @@ export const useAppStore = create<AppState>((set) => ({
   setActiveTool: (tool) => set({ activeTool: tool }),
 
   loadRootFolder: async () => {
-    const folder = await window.djUtils.getRootFolder()
+    const folder = await window.crateKeeper.getRootFolder()
     set({ rootFolder: folder })
   },
 
   pickRootFolder: async () => {
-    const chosen = await window.djUtils.pickFolder()
+    const chosen = await window.crateKeeper.pickFolder()
     if (chosen === null) return
-    await window.djUtils.setRootFolder(chosen)
+    await window.crateKeeper.setRootFolder(chosen)
     set({ rootFolder: chosen })
   }
 }))

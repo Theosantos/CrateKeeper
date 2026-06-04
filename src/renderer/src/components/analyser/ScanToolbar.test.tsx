@@ -4,15 +4,15 @@ import { ScanToolbar } from './ScanToolbar'
 import { useScanStore } from '../../store/useScanStore'
 import { useAppStore } from '../../store/useAppStore'
 import { useConversionStore } from '../../store/useConversionStore'
-import type { DjUtilsApi } from '../../../../shared/ipc-types'
+import type { CrateKeeperApi } from '../../../../shared/ipc-types'
 
-function installDjUtilsMock(): void {
-  const api: DjUtilsApi = {
-    pickFolder: vi.fn<DjUtilsApi['pickFolder']>().mockResolvedValue(null),
-    getRootFolder: vi.fn<DjUtilsApi['getRootFolder']>().mockResolvedValue(null),
-    setRootFolder: vi.fn<DjUtilsApi['setRootFolder']>().mockResolvedValue(undefined),
-    getSetting: vi.fn<DjUtilsApi['getSetting']>().mockResolvedValue(null),
-    setSetting: vi.fn<DjUtilsApi['setSetting']>().mockResolvedValue(undefined),
+function installCrateKeeperMock(): void {
+  const api: CrateKeeperApi = {
+    pickFolder: vi.fn<CrateKeeperApi['pickFolder']>().mockResolvedValue(null),
+    getRootFolder: vi.fn<CrateKeeperApi['getRootFolder']>().mockResolvedValue(null),
+    setRootFolder: vi.fn<CrateKeeperApi['setRootFolder']>().mockResolvedValue(undefined),
+    getSetting: vi.fn<CrateKeeperApi['getSetting']>().mockResolvedValue(null),
+    setSetting: vi.fn<CrateKeeperApi['setSetting']>().mockResolvedValue(undefined),
     scan: {
       start: vi.fn().mockResolvedValue(''),
       cancel: vi.fn().mockResolvedValue(undefined),
@@ -29,12 +29,12 @@ function installDjUtilsMock(): void {
       onEvent: vi.fn().mockReturnValue(() => {})
     }
   }
-  globalThis.window.djUtils = api
+  globalThis.window.crateKeeper = api
 }
 
 describe('ScanToolbar — Convertir selection action', () => {
   beforeEach(() => {
-    installDjUtilsMock()
+    installCrateKeeperMock()
     useAppStore.setState({ activeTool: 'analyser', rootFolder: '/music' })
     useScanStore.setState({
       scanId: 'scan-A',

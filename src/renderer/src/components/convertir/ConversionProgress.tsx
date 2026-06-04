@@ -86,7 +86,9 @@ export function ConversionProgress(): React.JSX.Element {
   const items = virtualizer.getVirtualItems()
   const totalSize = virtualizer.getTotalSize()
 
-  // Build a quick errorMessage lookup so each row shows its own (T-3-11 echo).
+  // Build a quick errorMessage lookup so each row's badge tooltip can show
+  // the specific error (T-3-11 echo). The inline error column was removed —
+  // hover the badge to see the message, or read the summary line below.
   const errorByPath = new Map<string, string>()
   for (const e of errors) errorByPath.set(e.filePath, e.errorMessage)
 
@@ -120,10 +122,8 @@ export function ConversionProgress(): React.JSX.Element {
             const fileStatus = fileStatuses.get(filePath)
             const percent = progress?.percent ?? 0
             const errMsg = errorByPath.get(filePath)
-            const truncatedErr =
-              errMsg !== undefined && errMsg.length > 80
-                ? `${errMsg.slice(0, 77)}…`
-                : errMsg
+            // Badge tooltip: file path on success, error message on failure.
+            const badgeTitle = errMsg ?? filePath
             return (
               <div
                 key={vi.key}
@@ -149,15 +149,10 @@ export function ConversionProgress(): React.JSX.Element {
                 />
                 <span
                   className={`conversion-progress__badge ${statusClass(fileStatus)}`}
-                  title={errMsg}
+                  title={badgeTitle}
                 >
                   {statusLabel(fileStatus)}
                 </span>
-                {truncatedErr !== undefined ? (
-                  <span className="conversion-progress__error-msg" title={errMsg}>
-                    {truncatedErr}
-                  </span>
-                ) : null}
               </div>
             )
           })}

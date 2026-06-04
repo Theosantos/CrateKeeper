@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import type { DjUtilsApi, ConversionEvent } from '../../../../shared/ipc-types'
+import type { CrateKeeperApi, ConversionEvent } from '../../../../shared/ipc-types'
 import { useAppStore } from '../../store/useAppStore'
 import { useConversionStore } from '../../store/useConversionStore'
 import { ConvertirView } from './ConvertirView'
@@ -30,15 +30,15 @@ vi.mock('@tanstack/react-virtual', () => {
 })
 
 type Bridge = {
-  api: DjUtilsApi
+  api: CrateKeeperApi
   emit: (e: ConversionEvent) => void
   unsubscribe: ReturnType<typeof vi.fn>
 }
 
-function installBridge(overrides: Partial<DjUtilsApi> = {}): Bridge {
+function installBridge(overrides: Partial<CrateKeeperApi> = {}): Bridge {
   let registered: ((e: ConversionEvent) => void) | null = null
   const unsubscribe = vi.fn()
-  const api: DjUtilsApi = {
+  const api: CrateKeeperApi = {
     pickFolder: vi.fn().mockResolvedValue(null),
     getRootFolder: vi.fn().mockResolvedValue('/music'),
     setRootFolder: vi.fn().mockResolvedValue(undefined),
@@ -64,7 +64,7 @@ function installBridge(overrides: Partial<DjUtilsApi> = {}): Bridge {
     },
     ...overrides
   }
-  globalThis.window.djUtils = api
+  globalThis.window.crateKeeper = api
   return {
     api,
     unsubscribe,
@@ -250,7 +250,7 @@ describe('ConvertirView', () => {
   it('on mount, reads conversion.lastPreset and applies setPreset when valid', async () => {
     installBridge({
       getSetting: vi
-        .fn<DjUtilsApi['getSetting']>()
+        .fn<CrateKeeperApi['getSetting']>()
         .mockResolvedValue(
           JSON.stringify({
             slug: 'flac',
@@ -365,7 +365,7 @@ describe('ConvertirView', () => {
         discard: vi.fn().mockResolvedValue(undefined),
         pickFiles: vi.fn().mockResolvedValue(null),
         onEvent: vi.fn().mockReturnValue(() => {})
-      } as DjUtilsApi['conversion']
+      } as CrateKeeperApi['conversion']
     })
     resetStores()
     render(<ConvertirView />)
@@ -410,7 +410,7 @@ describe('ConvertirView', () => {
         discard: vi.fn().mockResolvedValue(undefined),
         pickFiles: vi.fn().mockResolvedValue(null),
         onEvent: vi.fn().mockReturnValue(() => {})
-      } as DjUtilsApi['conversion']
+      } as CrateKeeperApi['conversion']
     })
     resetStores()
     render(<ConvertirView />)
@@ -458,7 +458,7 @@ describe('ConvertirView', () => {
         discard: discardMock,
         pickFiles: vi.fn().mockResolvedValue(null),
         onEvent: vi.fn().mockReturnValue(() => {})
-      } as DjUtilsApi['conversion']
+      } as CrateKeeperApi['conversion']
     })
     resetStores()
     render(<ConvertirView />)
@@ -505,7 +505,7 @@ describe('ConvertirView', () => {
         discard: vi.fn().mockResolvedValue(undefined),
         pickFiles: vi.fn().mockResolvedValue(null),
         onEvent: vi.fn().mockReturnValue(() => {})
-      } as DjUtilsApi['conversion']
+      } as CrateKeeperApi['conversion']
     })
     resetStores()
     render(<ConvertirView />)

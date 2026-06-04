@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   ConversionEvent,
-  DjUtilsApi,
+  CrateKeeperApi,
   Preset,
   ResumableBatch
 } from '../../../shared/ipc-types'
@@ -14,44 +14,44 @@ import {
 type ConversionCallback = (e: ConversionEvent) => void
 
 type MockedConversionApi = {
-  start: ReturnType<typeof vi.fn<DjUtilsApi['conversion']['start']>>
-  cancel: ReturnType<typeof vi.fn<DjUtilsApi['conversion']['cancel']>>
-  listResumable: ReturnType<typeof vi.fn<DjUtilsApi['conversion']['listResumable']>>
-  resume: ReturnType<typeof vi.fn<DjUtilsApi['conversion']['resume']>>
-  discard: ReturnType<typeof vi.fn<DjUtilsApi['conversion']['discard']>>
-  onEvent: ReturnType<typeof vi.fn<DjUtilsApi['conversion']['onEvent']>>
+  start: ReturnType<typeof vi.fn<CrateKeeperApi['conversion']['start']>>
+  cancel: ReturnType<typeof vi.fn<CrateKeeperApi['conversion']['cancel']>>
+  listResumable: ReturnType<typeof vi.fn<CrateKeeperApi['conversion']['listResumable']>>
+  resume: ReturnType<typeof vi.fn<CrateKeeperApi['conversion']['resume']>>
+  discard: ReturnType<typeof vi.fn<CrateKeeperApi['conversion']['discard']>>
+  onEvent: ReturnType<typeof vi.fn<CrateKeeperApi['conversion']['onEvent']>>
   emit: (e: ConversionEvent) => void
   unsubscribe: ReturnType<typeof vi.fn>
-  getSetting: ReturnType<typeof vi.fn<DjUtilsApi['getSetting']>>
-  setSetting: ReturnType<typeof vi.fn<DjUtilsApi['setSetting']>>
+  getSetting: ReturnType<typeof vi.fn<CrateKeeperApi['getSetting']>>
+  setSetting: ReturnType<typeof vi.fn<CrateKeeperApi['setSetting']>>
 }
 
 function installMock(conversionId = 'conv-1'): MockedConversionApi {
   let registered: ConversionCallback | null = null
   const unsubscribe = vi.fn()
-  const onEvent = vi.fn<DjUtilsApi['conversion']['onEvent']>((cb) => {
+  const onEvent = vi.fn<CrateKeeperApi['conversion']['onEvent']>((cb) => {
     registered = cb
     return unsubscribe
   })
-  const start = vi.fn<DjUtilsApi['conversion']['start']>().mockResolvedValue(conversionId)
-  const cancel = vi.fn<DjUtilsApi['conversion']['cancel']>().mockResolvedValue(undefined)
+  const start = vi.fn<CrateKeeperApi['conversion']['start']>().mockResolvedValue(conversionId)
+  const cancel = vi.fn<CrateKeeperApi['conversion']['cancel']>().mockResolvedValue(undefined)
   const listResumable = vi
-    .fn<DjUtilsApi['conversion']['listResumable']>()
+    .fn<CrateKeeperApi['conversion']['listResumable']>()
     .mockResolvedValue([])
   const resume = vi
-    .fn<DjUtilsApi['conversion']['resume']>()
+    .fn<CrateKeeperApi['conversion']['resume']>()
     .mockResolvedValue(undefined)
   const discard = vi
-    .fn<DjUtilsApi['conversion']['discard']>()
+    .fn<CrateKeeperApi['conversion']['discard']>()
     .mockResolvedValue(undefined)
   const getSetting = vi
-    .fn<DjUtilsApi['getSetting']>()
+    .fn<CrateKeeperApi['getSetting']>()
     .mockResolvedValue(null)
   const setSetting = vi
-    .fn<DjUtilsApi['setSetting']>()
+    .fn<CrateKeeperApi['setSetting']>()
     .mockResolvedValue(undefined)
 
-  globalThis.window.djUtils = {
+  globalThis.window.crateKeeper = {
     pickFolder: vi.fn().mockResolvedValue(null),
     getRootFolder: vi.fn().mockResolvedValue(null),
     setRootFolder: vi.fn().mockResolvedValue(undefined),
@@ -62,7 +62,7 @@ function installMock(conversionId = 'conv-1'): MockedConversionApi {
       cancel: vi.fn().mockResolvedValue(undefined),
       exportCsv: vi.fn().mockResolvedValue(null),
       onEvent: vi.fn().mockReturnValue(() => {})
-    } as unknown as DjUtilsApi['scan'],
+    } as unknown as CrateKeeperApi['scan'],
     conversion: {
       start,
       cancel,
@@ -70,7 +70,7 @@ function installMock(conversionId = 'conv-1'): MockedConversionApi {
       resume,
       discard,
       onEvent
-    } as unknown as DjUtilsApi['conversion']
+    } as unknown as CrateKeeperApi['conversion']
   }
 
   return {
@@ -183,7 +183,7 @@ describe('useConversionStore', () => {
     expect(api.cancel).toHaveBeenCalledWith('conv-A')
   })
 
-  it('subscribeEvents wires djUtils.conversion.onEvent and returns an unsubscribe', () => {
+  it('subscribeEvents wires crateKeeper.conversion.onEvent and returns an unsubscribe', () => {
     const api = installMock()
     const off = useConversionStore.getState().subscribeEvents()
     expect(api.onEvent).toHaveBeenCalledTimes(1)

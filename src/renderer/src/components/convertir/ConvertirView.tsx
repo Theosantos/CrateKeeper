@@ -11,7 +11,7 @@ import { ResumeBanner } from './ResumeBanner'
  * Top-level Convertir view.
  *
  * Lifecycle:
- *  - on mount: subscribe to djUtils.conversion.onEvent and clean up on
+ *  - on mount: subscribe to crateKeeper.conversion.onEvent and clean up on
  *    unmount (useEffect with returned closure)
  *  - on mount: one-shot load of conversion.lastPreset from settings;
  *    if present, apply via setPreset (LOCKED persistence)
@@ -52,7 +52,7 @@ export function ConvertirView(): React.JSX.Element {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      const raw = await window.djUtils.getSetting('conversion.lastPreset')
+      const raw = await window.crateKeeper.getSetting('conversion.lastPreset')
       if (cancelled) return
       const saved = parseSavedPreset(raw)
       if (saved !== null) {
@@ -85,7 +85,7 @@ export function ConvertirView(): React.JSX.Element {
   }
 
   async function handlePickFiles(): Promise<void> {
-    const picked = await window.djUtils.conversion.pickFiles()
+    const picked = await window.crateKeeper.conversion.pickFiles()
     if (picked === null) return
     if (picked.length === 0) return
     useConversionStore.getState().seedFilePaths(picked)
@@ -154,6 +154,11 @@ export function ConvertirView(): React.JSX.Element {
         )}
 
         <div className="convertir__actions">
+          {error !== null ? (
+            <p className="convertir__error" role="alert">
+              {error}
+            </p>
+          ) : null}
           {isRunning ? (
             <button
               type="button"
@@ -172,11 +177,6 @@ export function ConvertirView(): React.JSX.Element {
               Lancer
             </button>
           )}
-          {error !== null ? (
-            <p className="convertir__error" role="alert">
-              {error}
-            </p>
-          ) : null}
         </div>
       </div>
     </section>

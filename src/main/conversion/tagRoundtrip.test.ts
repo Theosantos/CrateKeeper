@@ -29,7 +29,7 @@ suite('tag round-trip (real ffmpeg)', () => {
   let tmpdir: string
 
   beforeEach(() => {
-    tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), 'dj-utils-tag-rt-'))
+    tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), 'cratekeeper-tag-rt-'))
   })
 
   afterEach(() => {

@@ -30,7 +30,7 @@ function App(): React.JSX.Element {
           <span className="app-shell__brand-mark" aria-hidden="true">
             ◆
           </span>
-          <span className="app-shell__brand-name">DJ Utils</span>
+          <span className="app-shell__brand-name">CrateKeeper</span>
         </div>
         <NavBar />
         <RootFolderPicker />

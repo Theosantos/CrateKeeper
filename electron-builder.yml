@@ -1,5 +1,5 @@
-appId: com.djutils.app
-productName: DJ Utils
+appId: com.cratekeeper.app
+productName: CrateKeeper
 directories:
   buildResources: build
 files:
@@ -14,7 +14,7 @@ asarUnpack:
   - "**/node_modules/ffmpeg-static/**"
   - "**/node_modules/better-sqlite3/**"
 win:
-  executableName: dj-utils
+  executableName: cratekeeper
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

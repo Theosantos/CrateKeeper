@@ -5,7 +5,7 @@ import type { ScanEvent, ScannedFile } from '../../../shared/ipc-types'
  * Scan lifecycle store.
  *
  * The renderer never imports node/electron directly (Plan 01-02 T-1-04 invariant
- * carried). All privileged calls route through `window.djUtils.scan`, exposed
+ * carried). All privileged calls route through `window.crateKeeper.scan`, exposed
  * by the preload contextBridge in Plan 02-01.
  *
  * Anti-pattern guards (RESEARCH 02 Pitfall 5 / Anti-Patterns):
@@ -120,15 +120,15 @@ export const useScanStore = create<ScanState>((set, get) => {
         unsubscribe: null
       })
 
-      const scanId = await window.djUtils.scan.start(folder)
-      const off = window.djUtils.scan.onEvent((e) => handleEvent(e))
+      const scanId = await window.crateKeeper.scan.start(folder)
+      const off = window.crateKeeper.scan.onEvent((e) => handleEvent(e))
       set({ scanId, unsubscribe: off })
     },
 
     cancel: async (): Promise<void> => {
       const id = get().scanId
       if (id === null) return
-      await window.djUtils.scan.cancel(id)
+      await window.crateKeeper.scan.cancel(id)
       // Status transition is driven by the 'cancelled' event, not here.
     },
 
@@ -140,7 +140,7 @@ export const useScanStore = create<ScanState>((set, get) => {
       }
       set({ exporting: true })
       try {
-        const exportedPath = await window.djUtils.scan.exportCsv(s.scanId)
+        const exportedPath = await window.crateKeeper.scan.exportCsv(s.scanId)
         if (exportedPath !== null) {
           set({ lastExportPath: exportedPath })
         }

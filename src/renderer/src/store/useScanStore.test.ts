@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { DjUtilsApi, ScanEvent, ScannedFile } from '../../../shared/ipc-types'
+import type { CrateKeeperApi, ScanEvent, ScannedFile } from '../../../shared/ipc-types'
 import { useScanStore } from './useScanStore'
 
 type ScanCallback = (e: ScanEvent) => void
 
 type MockedScanApi = {
-  start: ReturnType<typeof vi.fn<DjUtilsApi['scan']['start']>>
-  cancel: ReturnType<typeof vi.fn<DjUtilsApi['scan']['cancel']>>
-  exportCsv: ReturnType<typeof vi.fn<DjUtilsApi['scan']['exportCsv']>>
-  onEvent: ReturnType<typeof vi.fn<DjUtilsApi['scan']['onEvent']>>
+  start: ReturnType<typeof vi.fn<CrateKeeperApi['scan']['start']>>
+  cancel: ReturnType<typeof vi.fn<CrateKeeperApi['scan']['cancel']>>
+  exportCsv: ReturnType<typeof vi.fn<CrateKeeperApi['scan']['exportCsv']>>
+  onEvent: ReturnType<typeof vi.fn<CrateKeeperApi['scan']['onEvent']>>
   /** captured callback registered by the store on subscribe */
   emit: (e: ScanEvent) => void
   /** vi.fn() returned as unsubscribe — test asserts on .mock.calls */
@@ -18,31 +18,31 @@ type MockedScanApi = {
 function installScanMock(scanId = 'scan-1'): MockedScanApi {
   let registered: ScanCallback | null = null
   const unsubscribe = vi.fn()
-  const onEvent = vi.fn<DjUtilsApi['scan']['onEvent']>((cb) => {
+  const onEvent = vi.fn<CrateKeeperApi['scan']['onEvent']>((cb) => {
     registered = cb
     return unsubscribe
   })
-  const start = vi.fn<DjUtilsApi['scan']['start']>().mockResolvedValue(scanId)
-  const cancel = vi.fn<DjUtilsApi['scan']['cancel']>().mockResolvedValue(undefined)
+  const start = vi.fn<CrateKeeperApi['scan']['start']>().mockResolvedValue(scanId)
+  const cancel = vi.fn<CrateKeeperApi['scan']['cancel']>().mockResolvedValue(undefined)
   const exportCsv = vi
-    .fn<DjUtilsApi['scan']['exportCsv']>()
+    .fn<CrateKeeperApi['scan']['exportCsv']>()
     .mockResolvedValue(null)
 
   const api = { start, cancel, exportCsv, onEvent }
-  globalThis.window.djUtils = {
+  globalThis.window.crateKeeper = {
     pickFolder: vi.fn().mockResolvedValue(null),
     getRootFolder: vi.fn().mockResolvedValue(null),
     setRootFolder: vi.fn().mockResolvedValue(undefined),
     getSetting: vi.fn().mockResolvedValue(null),
     setSetting: vi.fn().mockResolvedValue(undefined),
-    scan: api as unknown as DjUtilsApi['scan'],
+    scan: api as unknown as CrateKeeperApi['scan'],
     conversion: {
       start: vi.fn().mockResolvedValue(''),
       cancel: vi.fn().mockResolvedValue(undefined),
       listResumable: vi.fn().mockResolvedValue([]),
       resume: vi.fn().mockResolvedValue(undefined),
       onEvent: vi.fn().mockReturnValue(() => {})
-    } as unknown as DjUtilsApi['conversion']
+    } as unknown as CrateKeeperApi['conversion']
   }
 
   return {
@@ -217,16 +217,16 @@ describe('useScanStore', () => {
       expect(api.exportCsv).not.toHaveBeenCalled()
     })
 
-    it('calls window.djUtils.scan.exportCsv(scanId) and returns the path on success', async () => {
+    it('calls window.crateKeeper.scan.exportCsv(scanId) and returns the path on success', async () => {
       const api = installScanMock('scan-A')
-      api.exportCsv.mockResolvedValue('/tmp/dj-utils.csv')
+      api.exportCsv.mockResolvedValue('/tmp/cratekeeper.csv')
       await useScanStore.getState().start('/music')
       api.emit({ type: 'done', scanId: 'scan-A', totalFiles: 3, durationMs: 100 })
 
       const result = await useScanStore.getState().exportCsv()
       expect(api.exportCsv).toHaveBeenCalledWith('scan-A')
-      expect(result).toBe('/tmp/dj-utils.csv')
-      expect(useScanStore.getState().lastExportPath).toBe('/tmp/dj-utils.csv')
+      expect(result).toBe('/tmp/cratekeeper.csv')
+      expect(useScanStore.getState().lastExportPath).toBe('/tmp/cratekeeper.csv')
       // exporting flag must be cleared after the promise resolves
       expect(useScanStore.getState().exporting).toBe(false)
     })

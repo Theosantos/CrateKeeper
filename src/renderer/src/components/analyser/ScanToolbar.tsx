@@ -6,7 +6,7 @@ import { useConversionStore } from '../../store/useConversionStore'
 /**
  * Scanner / Stop / Exporter CSV controls + live progress strip.
  *
- * Reads rootFolder from useAppStore (NOT directly from window.djUtils.getRootFolder
+ * Reads rootFolder from useAppStore (NOT directly from window.crateKeeper.getRootFolder
  * — Threat T-2-01 defence in depth: the store always passes the persisted
  * allowlisted folder, never a user-typed path).
  *

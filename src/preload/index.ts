@@ -1,14 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import {
   IpcChannels,
-  type DjUtilsApi,
+  type CrateKeeperApi,
   type ScanEvent,
   type ConversionEvent,
   type Preset,
   type ResumableBatch
 } from '../shared/ipc-types'
 
-const djUtils: DjUtilsApi = {
+const crateKeeper: CrateKeeperApi = {
   pickFolder: () => ipcRenderer.invoke(IpcChannels.PickFolder),
   getRootFolder: () => ipcRenderer.invoke(IpcChannels.GetRootFolder),
   setRootFolder: (path: string) => ipcRenderer.invoke(IpcChannels.SetRootFolder, path),
@@ -53,11 +53,11 @@ const djUtils: DjUtilsApi = {
 // The window.* fallback is kept for the (currently unused) isolation-off case.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('djUtils', djUtils)
+    contextBridge.exposeInMainWorld('crateKeeper', crateKeeper)
   } catch (error) {
     console.error(error)
   }
 } else {
   // @ts-ignore (define in dts)
-  window.djUtils = djUtils
+  window.crateKeeper = crateKeeper
 }

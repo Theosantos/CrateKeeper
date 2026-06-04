@@ -8,7 +8,7 @@ import type {
 
 /**
  * Conversion lifecycle store. Mirrors useScanStore's shape:
- *  - all privileged calls go through `window.djUtils.conversion.*`
+ *  - all privileged calls go through `window.crateKeeper.conversion.*`
  *  - all setters produce NEW Map / Array / Set instances (immutability)
  *  - the subscribeEvents lifecycle returns an unsubscribe closure to be
  *    invoked on view unmount
@@ -200,14 +200,14 @@ export const useConversionStore = create<ConversionState>((set, get) => {
       })
 
       try {
-        const id = await window.djUtils.conversion.start({
+        const id = await window.crateKeeper.conversion.start({
           rootFolder,
           filePaths: [...get().pendingFilePaths],
           preset
         })
         set({ conversionId: id })
         // LOCKED persistence: remember the last preset used for next launch.
-        await window.djUtils.setSetting('conversion.lastPreset', JSON.stringify(preset))
+        await window.crateKeeper.setSetting('conversion.lastPreset', JSON.stringify(preset))
       } catch (err: unknown) {
         if (isBatchAlreadyActive(err)) {
           set({
@@ -224,13 +224,13 @@ export const useConversionStore = create<ConversionState>((set, get) => {
     cancelBatch: async (): Promise<void> => {
       const id = get().conversionId
       if (id === null) return
-      await window.djUtils.conversion.cancel(id)
+      await window.crateKeeper.conversion.cancel(id)
       // Status transition is driven by the 'cancelled' event from main —
       // not flipped here, to keep main as the single source of truth.
     },
 
     subscribeEvents: (): (() => void) => {
-      return window.djUtils.conversion.onEvent((e) => handleEvent(e))
+      return window.crateKeeper.conversion.onEvent((e) => handleEvent(e))
     },
 
     reset: (): void => {
@@ -246,7 +246,7 @@ export const useConversionStore = create<ConversionState>((set, get) => {
 
     checkResumable: async (): Promise<void> => {
       try {
-        const batches = await window.djUtils.conversion.listResumable()
+        const batches = await window.crateKeeper.conversion.listResumable()
         set({ resumableBatches: batches })
       } catch (err) {
         const message =
@@ -280,7 +280,7 @@ export const useConversionStore = create<ConversionState>((set, get) => {
           selectedPreset: batch?.preset ?? DEFAULT_PRESET
         })
         get().subscribeEvents()
-        await window.djUtils.conversion.resume(conversionId)
+        await window.crateKeeper.conversion.resume(conversionId)
         set({
           status: 'running',
           conversionId,
@@ -303,7 +303,7 @@ export const useConversionStore = create<ConversionState>((set, get) => {
 
     discardBatch: async (conversionId: string): Promise<void> => {
       try {
-        await window.djUtils.conversion.discard(conversionId)
+        await window.crateKeeper.conversion.discard(conversionId)
         set((s) => ({
           resumableBatches: s.resumableBatches.filter(
             (b) => b.conversionId !== conversionId

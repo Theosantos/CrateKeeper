@@ -2,40 +2,40 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import App from './App'
 import { useAppStore } from './store/useAppStore'
-import type { DjUtilsApi } from '../../shared/ipc-types'
+import type { CrateKeeperApi } from '../../shared/ipc-types'
 
-function installDjUtilsMock(): void {
-  const api: DjUtilsApi = {
-    pickFolder: vi.fn<DjUtilsApi['pickFolder']>().mockResolvedValue(null),
-    getRootFolder: vi.fn<DjUtilsApi['getRootFolder']>().mockResolvedValue(null),
-    setRootFolder: vi.fn<DjUtilsApi['setRootFolder']>().mockResolvedValue(undefined),
-    getSetting: vi.fn<DjUtilsApi['getSetting']>().mockResolvedValue(null),
-    setSetting: vi.fn<DjUtilsApi['setSetting']>().mockResolvedValue(undefined),
+function installCrateKeeperMock(): void {
+  const api: CrateKeeperApi = {
+    pickFolder: vi.fn<CrateKeeperApi['pickFolder']>().mockResolvedValue(null),
+    getRootFolder: vi.fn<CrateKeeperApi['getRootFolder']>().mockResolvedValue(null),
+    setRootFolder: vi.fn<CrateKeeperApi['setRootFolder']>().mockResolvedValue(undefined),
+    getSetting: vi.fn<CrateKeeperApi['getSetting']>().mockResolvedValue(null),
+    setSetting: vi.fn<CrateKeeperApi['setSetting']>().mockResolvedValue(undefined),
     scan: {
-      start: vi.fn<DjUtilsApi['scan']['start']>().mockResolvedValue(''),
-      cancel: vi.fn<DjUtilsApi['scan']['cancel']>().mockResolvedValue(undefined),
-      exportCsv: vi.fn<DjUtilsApi['scan']['exportCsv']>().mockResolvedValue(null),
-      onEvent: vi.fn<DjUtilsApi['scan']['onEvent']>().mockReturnValue(() => {})
+      start: vi.fn<CrateKeeperApi['scan']['start']>().mockResolvedValue(''),
+      cancel: vi.fn<CrateKeeperApi['scan']['cancel']>().mockResolvedValue(undefined),
+      exportCsv: vi.fn<CrateKeeperApi['scan']['exportCsv']>().mockResolvedValue(null),
+      onEvent: vi.fn<CrateKeeperApi['scan']['onEvent']>().mockReturnValue(() => {})
     },
     conversion: {
-      start: vi.fn<DjUtilsApi['conversion']['start']>().mockResolvedValue(''),
-      cancel: vi.fn<DjUtilsApi['conversion']['cancel']>().mockResolvedValue(undefined),
+      start: vi.fn<CrateKeeperApi['conversion']['start']>().mockResolvedValue(''),
+      cancel: vi.fn<CrateKeeperApi['conversion']['cancel']>().mockResolvedValue(undefined),
       listResumable: vi
-        .fn<DjUtilsApi['conversion']['listResumable']>()
+        .fn<CrateKeeperApi['conversion']['listResumable']>()
         .mockResolvedValue([]),
-      resume: vi.fn<DjUtilsApi['conversion']['resume']>().mockResolvedValue(undefined),
-      discard: vi.fn<DjUtilsApi['conversion']['discard']>().mockResolvedValue(undefined),
-      pickFiles: vi.fn<DjUtilsApi['conversion']['pickFiles']>().mockResolvedValue(null),
-      onEvent: vi.fn<DjUtilsApi['conversion']['onEvent']>().mockReturnValue(() => {})
+      resume: vi.fn<CrateKeeperApi['conversion']['resume']>().mockResolvedValue(undefined),
+      discard: vi.fn<CrateKeeperApi['conversion']['discard']>().mockResolvedValue(undefined),
+      pickFiles: vi.fn<CrateKeeperApi['conversion']['pickFiles']>().mockResolvedValue(null),
+      onEvent: vi.fn<CrateKeeperApi['conversion']['onEvent']>().mockReturnValue(() => {})
     }
   }
-  globalThis.window.djUtils = api
+  globalThis.window.crateKeeper = api
 }
 
 describe('App', () => {
   beforeEach(() => {
     useAppStore.setState({ activeTool: 'analyser', rootFolder: null })
-    installDjUtilsMock()
+    installCrateKeeperMock()
   })
 
   it('renders the three tool labels in the navigation (FOUND-01)', async () => {

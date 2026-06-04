@@ -1,9 +1,9 @@
 {
-  "name": "dj-utils",
+  "name": "cratekeeper",
   "version": "0.1.0",
   "description": "Desktop DJ library tools — analyse, convert, tag",
   "main": "./out/main/index.js",
-  "author": "DJ Utils",
+  "author": "CrateKeeper",
   "homepage": "https://electron-vite.org",
   "scripts": {
     "format": "prettier --write .",

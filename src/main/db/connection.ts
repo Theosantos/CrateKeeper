@@ -15,7 +15,7 @@ let scanRepoInstance: ScanRepo | null = null
 let conversionRepoInstance: ConversionRepo | null = null
 
 /**
- * Open (or return the cached) better-sqlite3 connection at userData/dj-utils.db.
+ * Open (or return the cached) better-sqlite3 connection at userData/cratekeeper.db.
  *
  * Lazy: defers app.getPath('userData') until first call so this module can be
  * imported in tests that never invoke openDb().
@@ -25,7 +25,7 @@ export function openDb(): Database.Database {
     return dbInstance
   }
 
-  const dbPath = path.join(app.getPath('userData'), 'dj-utils.db')
+  const dbPath = path.join(app.getPath('userData'), 'cratekeeper.db')
   const db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
   initSettingsSchema(db)

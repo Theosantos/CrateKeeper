@@ -63,7 +63,13 @@
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-md);
+}
+
+/* Error text (if any) stays left while the button hugs the right edge. */
+.convertir__actions .convertir__error {
+  margin-right: auto;
 }
 
 .convertir__action {
@@ -314,16 +320,11 @@
   border-style: dashed;
 }
 
-.preset-option--recommended {
-  border-color: var(--color-accent);
-  background: var(--color-surface-overlay);
-  box-shadow: 0 0 0 1px var(--color-accent) inset;
-}
-
-.preset-option--recommended:hover {
-  border-color: var(--color-accent);
-}
-
+/*
+ * Recommended preset is signalled by the badge only — no border/background
+ * accent on the card itself. Otherwise an unselected recommended option
+ * reads as a second active selection alongside the user's actual choice.
+ */
 .preset-option__badge {
   margin-left: auto;
   padding: 2px 8px;
@@ -464,14 +465,16 @@
 .conversion-progress__row {
   display: grid;
   /*
-   * Badge column is FIXED width (not `auto`) so the progress bar's right
-   * edge stays put when the status label changes between "EN ATTENTE" /
-   * "EN COURS" / "CONVERTI" / "ERREUR" / "IGNORÉ" / "ANNULÉ" — each label
-   * has a different natural width, and `auto` would let the bar shift
-   * horizontally as the badge text changed.
-   * Width = badge min-width (96px) + a hair for breathing room.
+   * 3-column layout: filename (flexible) | progress bar (flexible) | badge
+   * (fixed). The badge column is FIXED at 100px so the bar's right edge
+   * doesn't shift as labels change ("EN ATTENTE" vs "CONVERTI" etc.).
+   *
+   * The previous 4th column held an inline error-message span that was
+   * empty on most rows — it left a permanent dead zone at the right of
+   * the card. Error details are now surfaced via the badge `title`
+   * tooltip + the summary line at the bottom of the list.
    */
-  grid-template-columns: minmax(0, 1.5fr) 1fr 100px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) 100px;
   gap: var(--space-sm);
   align-items: center;
   padding: var(--space-2xs) 0;
@@ -564,15 +567,6 @@
   background: transparent;
   color: var(--color-text-muted);
   border-color: var(--color-border-strong);
-}
-
-.conversion-progress__error-msg {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--color-badge-error);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .conversion-progress__summary {

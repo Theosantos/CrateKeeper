@@ -4,7 +4,7 @@ import { resolveFfmpegPath } from './ffmpegPath'
 
 describe('resolveFfmpegPath', () => {
   it('returns the raw path unchanged when isPackaged=false (dev mode)', () => {
-    const raw = '/Users/x/dj-utils/node_modules/ffmpeg-static/ffmpeg'
+    const raw = '/Users/x/cratekeeper/node_modules/ffmpeg-static/ffmpeg'
     expect(resolveFfmpegPath({ rawPath: raw, isPackaged: false })).toBe(raw)
   })
 

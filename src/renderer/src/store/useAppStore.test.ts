@@ -1,23 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppStore } from './useAppStore'
 
-import type { DjUtilsApi } from '../../../shared/ipc-types'
+import type { CrateKeeperApi } from '../../../shared/ipc-types'
 
 type MockedApi = {
-  pickFolder: ReturnType<typeof vi.fn<DjUtilsApi['pickFolder']>>
-  getRootFolder: ReturnType<typeof vi.fn<DjUtilsApi['getRootFolder']>>
-  setRootFolder: ReturnType<typeof vi.fn<DjUtilsApi['setRootFolder']>>
+  pickFolder: ReturnType<typeof vi.fn<CrateKeeperApi['pickFolder']>>
+  getRootFolder: ReturnType<typeof vi.fn<CrateKeeperApi['getRootFolder']>>
+  setRootFolder: ReturnType<typeof vi.fn<CrateKeeperApi['setRootFolder']>>
 }
 
-function installDjUtilsMock(overrides: Partial<MockedApi> = {}): MockedApi {
+function installCrateKeeperMock(overrides: Partial<MockedApi> = {}): MockedApi {
   const api: MockedApi = {
-    pickFolder: vi.fn<DjUtilsApi['pickFolder']>().mockResolvedValue(null),
-    getRootFolder: vi.fn<DjUtilsApi['getRootFolder']>().mockResolvedValue(null),
-    setRootFolder: vi.fn<DjUtilsApi['setRootFolder']>().mockResolvedValue(undefined),
+    pickFolder: vi.fn<CrateKeeperApi['pickFolder']>().mockResolvedValue(null),
+    getRootFolder: vi.fn<CrateKeeperApi['getRootFolder']>().mockResolvedValue(null),
+    setRootFolder: vi.fn<CrateKeeperApi['setRootFolder']>().mockResolvedValue(undefined),
     ...overrides
   }
-  // The renderer only ever talks through window.djUtils — the preload exposes it.
-  globalThis.window.djUtils = api as unknown as DjUtilsApi
+  // The renderer only ever talks through window.crateKeeper — the preload exposes it.
+  globalThis.window.crateKeeper = api as unknown as CrateKeeperApi
   return api
 }
 
@@ -36,8 +36,8 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().activeTool).toBe('tagger')
   })
 
-  it('loadRootFolder() pulls the persisted folder from window.djUtils.getRootFolder', async () => {
-    const api = installDjUtilsMock({
+  it('loadRootFolder() pulls the persisted folder from window.crateKeeper.getRootFolder', async () => {
+    const api = installCrateKeeperMock({
       getRootFolder: vi.fn().mockResolvedValue('/Users/dj/music')
     })
 
@@ -48,7 +48,7 @@ describe('useAppStore', () => {
   })
 
   it('pickRootFolder() persists + sets the chosen path; a cancelled dialog leaves state untouched', async () => {
-    const chosenApi = installDjUtilsMock({
+    const chosenApi = installCrateKeeperMock({
       pickFolder: vi.fn().mockResolvedValue('/Users/dj/library'),
       setRootFolder: vi.fn().mockResolvedValue(undefined)
     })
@@ -60,7 +60,7 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().rootFolder).toBe('/Users/dj/library')
 
     // Now: user cancels the dialog → pickFolder returns null → rootFolder unchanged
-    const cancelledApi = installDjUtilsMock({
+    const cancelledApi = installCrateKeeperMock({
       pickFolder: vi.fn().mockResolvedValue(null),
       setRootFolder: vi.fn().mockResolvedValue(undefined)
     })

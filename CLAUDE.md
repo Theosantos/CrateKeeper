@@ -1,9 +1,9 @@
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
-**DJ Utils**
+**CrateKeeper**
 
-DJ Utils est une app desktop (Electron, Mac + Windows) pensée pour les DJs qui veulent reprendre le contrôle de leur bibliothèque musicale. Elle regroupe trois outils : analyse batch des fichiers audio, conversion vers des formats/bitrates cibles, et une interface de catégorisation gamifiée style Tinder pour tagger les sons non-classifiés avec des métadonnées compatibles Rekordbox.
+CrateKeeper est une app desktop (Electron, Mac + Windows) pensée pour les DJs qui veulent reprendre le contrôle de leur bibliothèque musicale. Elle regroupe trois outils : analyse batch des fichiers audio, conversion vers des formats/bitrates cibles, et une interface de catégorisation gamifiée style Tinder pour tagger les sons non-classifiés avec des métadonnées compatibles Rekordbox.
 
 **Core Value:** Permettre à un DJ de passer de "bibliothèque en désordre" à "collection propre et taguée" sans quitter une seule interface.
 

@@ -60,7 +60,7 @@ function makeExportDeps(o: ExportDepsOverrides = {}): {
   } as unknown as ScanRepo
   const showSaveDialog = vi.fn(async () => ({
     canceled: o.cancelled ?? false,
-    filePath: o.pickedFilePath ?? '/tmp/dj-utils-scan.csv'
+    filePath: o.pickedFilePath ?? '/tmp/cratekeeper-scan.csv'
   }))
   const streamCsvFn = vi.fn(async () => undefined)
   const deps: ScanExportCsvDeps = {
@@ -118,16 +118,16 @@ describe('scan IPC handlers', () => {
   })
 
   describe('defaultCsvFilename', () => {
-    it('formats as dj-utils-scan-YYYYMMDD-HHmm.csv with zero-padding', () => {
+    it('formats as cratekeeper-scan-YYYYMMDD-HHmm.csv with zero-padding', () => {
       const fn = defaultCsvFilename(new Date('2026-05-29T14:32:00Z'))
-      expect(fn).toMatch(/^dj-utils-scan-\d{8}-\d{4}\.csv$/)
+      expect(fn).toMatch(/^cratekeeper-scan-\d{8}-\d{4}\.csv$/)
     })
 
     it('zero-pads single-digit months/days/hours/minutes', () => {
       // Use UTC to avoid local-tz drift in CI
       const fn = defaultCsvFilename(new Date(Date.UTC(2026, 0, 3, 4, 5, 0)))
       // 2026-01-03 04:05 → 20260103-0405
-      expect(fn).toBe('dj-utils-scan-20260103-0405.csv')
+      expect(fn).toBe('cratekeeper-scan-20260103-0405.csv')
     })
 
     it('is pure (same Date in → same name out)', () => {
@@ -156,7 +156,7 @@ describe('scan IPC handlers', () => {
       await scanExportCsvHandler(deps, 'scan-1')
       expect(showSaveDialog).toHaveBeenCalledTimes(1)
       const opts = showSaveDialog.mock.calls[0][0]
-      expect(opts.defaultPath).toBe('/Users/test/Downloads/dj-utils-scan-20260529-1432.csv')
+      expect(opts.defaultPath).toBe('/Users/test/Downloads/cratekeeper-scan-20260529-1432.csv')
       expect(opts.filters).toEqual([{ name: 'CSV', extensions: ['csv'] }])
     })
 
@@ -194,7 +194,7 @@ describe('scan IPC handlers', () => {
       const opts = showSaveDialog.mock.calls[0][0]
       expect(opts.defaultPath).not.toContain('passwd')
       expect(opts.defaultPath).not.toContain('..')
-      expect(opts.defaultPath).toBe('/Users/test/Downloads/dj-utils-scan-20260529-1432.csv')
+      expect(opts.defaultPath).toBe('/Users/test/Downloads/cratekeeper-scan-20260529-1432.csv')
     })
   })
 
