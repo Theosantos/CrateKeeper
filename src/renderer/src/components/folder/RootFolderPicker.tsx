@@ -23,6 +23,16 @@ export function RootFolderPicker(): React.JSX.Element {
 
   return (
     <div className="folder-picker">
+      <button
+        type="button"
+        className="folder-picker__button"
+        onClick={() => {
+          // Fire-and-forget — store updates state on resolve.
+          void pickRootFolder()
+        }}
+      >
+        Choisir un dossier
+      </button>
       <div className="folder-picker__path" aria-live="polite">
         {rootFolder !== null ? (
           <>
@@ -48,16 +58,6 @@ export function RootFolderPicker(): React.JSX.Element {
           <span className="folder-picker__empty">Aucun dossier sélectionné</span>
         )}
       </div>
-      <button
-        type="button"
-        className="folder-picker__button"
-        onClick={() => {
-          // Fire-and-forget — store updates state on resolve.
-          void pickRootFolder()
-        }}
-      >
-        Choisir un dossier
-      </button>
     </div>
   )
 }

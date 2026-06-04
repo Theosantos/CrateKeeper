@@ -307,17 +307,21 @@ code {
 .folder-picker__path {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 2px;
   min-width: 0;
   max-width: 320px;
-  flex: 0 1 auto;
   /*
-   * Path sits to the LEFT of the button now (JSX-reordered). align-items:
-   * flex-end pulls the label + value tight against the button on the right,
-   * which keeps the relationship between "Bibliothèque /…/foo" and the
-   * "Choisir un dossier" action visually obvious.
+   * Path sits to the RIGHT of the button. The column must SHRINK BELOW its
+   * content's natural width on narrow viewports — otherwise the path text
+   * extends past max-width and visually overlaps adjacent siblings
+   * (or the right edge of the window).
+   * `flex: 1 1 0` lets it both grow to fill available space AND shrink
+   * down to zero when the viewport demands. Combined with overflow: hidden
+   * on the path-value below, the path ellipsizes cleanly.
    */
+  flex: 1 1 0;
+  overflow: hidden;
 }
 
 .folder-picker__path-label {
@@ -335,6 +339,8 @@ code {
   color: var(--color-text-secondary);
   max-width: 100%;
   min-width: 0;
+  /* Clip overflowing path segments instead of bleeding under the button. */
+  overflow: hidden;
 }
 
 .folder-picker__path-head,
@@ -356,7 +362,13 @@ code {
 }
 
 .folder-picker__path-tail {
-  flex: 0 0 auto;
+  /*
+   * Tail (leaf folder name) is the "most important" segment so it shrinks
+   * LAST — but it MUST be allowed to shrink, otherwise long folder names
+   * push the rendered path past its container and overlap the button.
+   * `flex: 0 1 auto` lets it ellipsize gracefully.
+   */
+  flex: 0 1 auto;
   color: var(--color-text-primary);
 }
 
