@@ -274,6 +274,28 @@
   border-style: dashed;
 }
 
+.preset-option--recommended {
+  border-color: var(--color-accent);
+  background: var(--color-surface-overlay);
+  box-shadow: 0 0 0 1px var(--color-accent) inset;
+}
+
+.preset-option--recommended:hover {
+  border-color: var(--color-accent);
+}
+
+.preset-option__badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: oklch(15% 0.02 75);
+  background: var(--color-accent);
+  border-radius: 999px;
+}
+
 /* ── Custom preset form ───────────────────────────────────────────────────── */
 
 .custom-preset {

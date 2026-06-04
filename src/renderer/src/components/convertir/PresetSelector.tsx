@@ -29,12 +29,15 @@ export function PresetSelector(): React.JSX.Element {
     <fieldset className="preset-selector">
       <legend className="preset-selector__legend">Format de sortie</legend>
       <div className="preset-selector__options">
-        {PRESETS.map((p) => {
+        {PRESETS.map((p, index) => {
           const isActive = selectedPreset.slug === p.slug
+          const isRecommended = index === 0
           return (
             <label
               key={p.slug}
-              className={`preset-option${isActive ? ' preset-option--active' : ''}`}
+              className={`preset-option${isActive ? ' preset-option--active' : ''}${
+                isRecommended ? ' preset-option--recommended' : ''
+              }`}
             >
               <input
                 type="radio"
@@ -44,6 +47,9 @@ export function PresetSelector(): React.JSX.Element {
                 onChange={() => setPreset(p)}
               />
               <span className="preset-option__label">{p.label}</span>
+              {isRecommended ? (
+                <span className="preset-option__badge">Recommandé</span>
+              ) : null}
             </label>
           )
         })}

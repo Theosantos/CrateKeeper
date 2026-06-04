@@ -109,6 +109,8 @@ export function ConvertirView(): React.JSX.Element {
           {isCustom ? <CustomPresetForm /> : null}
         </div>
 
+        <ConversionProgress />
+
         <div className="convertir__actions">
           {isRunning ? (
             <button
@@ -134,8 +136,6 @@ export function ConvertirView(): React.JSX.Element {
             </p>
           ) : null}
         </div>
-
-        <ConversionProgress />
       </div>
     </section>
   )
