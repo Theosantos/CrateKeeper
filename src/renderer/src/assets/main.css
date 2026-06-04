@@ -157,8 +157,12 @@ code {
   gap: var(--space-xs);
   font-size: var(--text-brand);
   font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  letter-spacing: 0.005em;
+  /*
+   * Brand is rendered in its native casing ("CrateKeeper"), not uppercased.
+   * The all-caps treatment collapsed both words into "CRATEKEEPER" and lost
+   * the camel-case boundary that makes the name readable.
+   */
 }
 
 .app-shell__brand-mark {
@@ -263,7 +267,7 @@ code {
 .folder-picker {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   justify-self: end;
   min-width: 0;
   max-width: 100%;
@@ -306,8 +310,14 @@ code {
   align-items: flex-end;
   gap: 2px;
   min-width: 0;
-  max-width: 420px;
+  max-width: 320px;
   flex: 0 1 auto;
+  /*
+   * Path sits to the LEFT of the button now (JSX-reordered). align-items:
+   * flex-end pulls the label + value tight against the button on the right,
+   * which keeps the relationship between "Bibliothèque /…/foo" and the
+   * "Choisir un dossier" action visually obvious.
+   */
 }
 
 .folder-picker__path-label {
