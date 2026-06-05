@@ -37,7 +37,14 @@ export const IpcChannels = {
    */
   ConversionPickFiles: 'conversion:pick-files',
   /** main → renderer push channel; not invoked from the renderer. */
-  ConversionEvent: 'conversion:event'
+  ConversionEvent: 'conversion:event',
+  // Phase 4 — tagger namespace (LOCKED in 04-CONTEXT.md).
+  TaggerLoadQueue: 'tagger:load-queue',
+  TaggerSaveEdit: 'tagger:save-edit',
+  TaggerDeleteEdit: 'tagger:delete-edit',
+  TaggerGetSession: 'tagger:get-session',
+  TaggerSetSession: 'tagger:set-session',
+  TaggerGetGenrePresets: 'tagger:get-genre-presets'
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -169,9 +176,76 @@ export interface CrateKeeperConversionApi {
  * Settings keys that may be read/written through the generic
  * settings:get / settings:set bridge. Anything outside this set is rejected
  * on the main side (T-1-02: untrusted IPC argument).
+ *
+ * `tagger.muteEnabled` added in Phase 4 Plan 01 — T-4-07 mitigation
+ * (tagger mute toggle persistence without unbounded settings-key surface).
  */
-export const SETTINGS_KEY_ALLOWLIST = ['conversion.lastPreset'] as const
+export const SETTINGS_KEY_ALLOWLIST = [
+  'conversion.lastPreset',
+  'tagger.muteEnabled'
+] as const
 export type AllowedSettingKey = (typeof SETTINGS_KEY_ALLOWLIST)[number]
+
+// ───────────────────────── Phase 4 — tagger ──────────────────────────────────
+
+/** A pending edit row staged for Phase 5 file writes. PK = file_path. */
+export interface PendingTagEdit {
+  filePath: string
+  genre: string | null
+  bpm: number | null
+  key: string | null
+  artist: string | null
+  title: string | null
+  comment: string | null
+  rating: number | null
+  updatedAt: number
+  appliedAt: number | null
+}
+
+/** Single-row tagger session for resume (LOCKED: identity = file path). */
+export interface TaggerSession {
+  rootFolder: string
+  currentFilePath: string | null
+  scanId: string | null
+  updatedAt: number
+}
+
+/** Payload returned by `tagger:load-queue`. */
+export interface TaggerQueueResult {
+  scanId: string | null
+  files: ScannedFile[]
+  pendingEdits: Record<string, PendingTagEdit>
+}
+
+/** Payload returned by `tagger:get-genre-presets`. `presets.length === 9`. */
+export interface GenrePresetsResult {
+  source: 'library' | 'defaults' | 'mixed'
+  presets: string[]
+}
+
+/** Payload accepted by `tagger:save-edit`. Undefined fields are coerced to null. */
+export interface SaveTagEditInput {
+  filePath: string
+  genre?: string | null
+  bpm?: number | null
+  key?: string | null
+  artist?: string | null
+  title?: string | null
+  comment?: string | null
+  rating?: number | null
+}
+
+export interface CrateKeeperTaggerApi {
+  loadQueue(): Promise<TaggerQueueResult>
+  saveEdit(input: SaveTagEditInput): Promise<void>
+  deleteEdit(filePath: string): Promise<void>
+  getSession(): Promise<TaggerSession | null>
+  setSession(input: {
+    currentFilePath: string | null
+    scanId: string | null
+  }): Promise<void>
+  getGenrePresets(): Promise<GenrePresetsResult>
+}
 
 export interface CrateKeeperApi {
   pickFolder(): Promise<string | null>
@@ -183,6 +257,7 @@ export interface CrateKeeperApi {
   setSetting(key: AllowedSettingKey, value: string): Promise<void>
   scan: CrateKeeperScanApi
   conversion: CrateKeeperConversionApi
+  tagger: CrateKeeperTaggerApi
 }
 
 declare global {

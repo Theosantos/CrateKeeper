@@ -62,6 +62,14 @@ function installBridge(overrides: Partial<CrateKeeperApi> = {}): Bridge {
         return unsubscribe
       })
     },
+    tagger: {
+      loadQueue: vi.fn().mockResolvedValue({ scanId: null, files: [], pendingEdits: {} }),
+      saveEdit: vi.fn().mockResolvedValue(undefined),
+      deleteEdit: vi.fn().mockResolvedValue(undefined),
+      getSession: vi.fn().mockResolvedValue(null),
+      setSession: vi.fn().mockResolvedValue(undefined),
+      getGenrePresets: vi.fn().mockResolvedValue({ source: 'defaults', presets: [] })
+    } as unknown as CrateKeeperApi['tagger'],
     ...overrides
   }
   globalThis.window.crateKeeper = api

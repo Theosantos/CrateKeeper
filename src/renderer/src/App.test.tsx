@@ -27,6 +27,20 @@ function installCrateKeeperMock(): void {
       discard: vi.fn<CrateKeeperApi['conversion']['discard']>().mockResolvedValue(undefined),
       pickFiles: vi.fn<CrateKeeperApi['conversion']['pickFiles']>().mockResolvedValue(null),
       onEvent: vi.fn<CrateKeeperApi['conversion']['onEvent']>().mockReturnValue(() => {})
+    },
+    tagger: {
+      loadQueue: vi.fn<CrateKeeperApi['tagger']['loadQueue']>().mockResolvedValue({
+        scanId: null,
+        files: [],
+        pendingEdits: {}
+      }),
+      saveEdit: vi.fn<CrateKeeperApi['tagger']['saveEdit']>().mockResolvedValue(undefined),
+      deleteEdit: vi.fn<CrateKeeperApi['tagger']['deleteEdit']>().mockResolvedValue(undefined),
+      getSession: vi.fn<CrateKeeperApi['tagger']['getSession']>().mockResolvedValue(null),
+      setSession: vi.fn<CrateKeeperApi['tagger']['setSession']>().mockResolvedValue(undefined),
+      getGenrePresets: vi
+        .fn<CrateKeeperApi['tagger']['getGenrePresets']>()
+        .mockResolvedValue({ source: 'defaults', presets: [] })
     }
   }
   globalThis.window.crateKeeper = api

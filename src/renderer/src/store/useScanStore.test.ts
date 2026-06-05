@@ -42,7 +42,8 @@ function installScanMock(scanId = 'scan-1'): MockedScanApi {
       listResumable: vi.fn().mockResolvedValue([]),
       resume: vi.fn().mockResolvedValue(undefined),
       onEvent: vi.fn().mockReturnValue(() => {})
-    } as unknown as CrateKeeperApi['conversion']
+    } as unknown as CrateKeeperApi['conversion'],
+    tagger: {} as unknown as CrateKeeperApi['tagger']
   }
 
   return {
