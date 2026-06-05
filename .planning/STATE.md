@@ -8,8 +8,8 @@ progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 11
-  completed_plans: 10
-  percent: 50
+  completed_plans: 11
+  percent: 55
 ---
 
 # Project State — DJ Utils
@@ -73,3 +73,4 @@ Walking skeleton end-to-end: renderer ↔ window.djUtils ↔ main ↔ better-sql
 
 - **Plan 04-01** (2026-06-05): Tagger main-process backbone — 6 IPC channels (tagger:*), pending_tag_edits + tagger_session SQLite tables, cratekeeper:// custom protocol with folder + AUDIO_EXTS gates, mergeGenrePresets helper, scanRepo.findLatestScan/listIncompleteFiles, autoplayPolicy unlock. 7 commits. 351 tests green (64 new). Deviations: [Rule 2] additive `scanned_files.genre TEXT` column (Phase 2 schema was missing it for topGenres). See `.planning/phases/04-tagger-core/04-01-SUMMARY.md`.
 - **Plan 04-02** (2026-06-05): Tagger renderer card UX — useTaggerStore (queue + dirty edits + presets + mute + Keep/Skip), TaggerCard composite (filename + chips + AudioPreview + ArtistTitleSplit + 6 editable fields + RatingStars + GenrePresetBar + action row), useTaggerKeyboard with input-focus gate, AudioPreview cratekeeper:// + 30s loop + AIFF fallback, transform-only slide animation orchestrated by TaggerView, CSP media-src extension. 5 commits. 426 tests green (75 new). Marks TAGG-02..08 complete. Deviations: [Rule 3] jsdom HTMLMediaElement.play guard + contentEditable focus test setup + lifted slide orchestration to TaggerView (planner-discretion path). Annuler button rendered disabled (Plan 04-03 owns undo). See `.planning/phases/04-tagger-core/04-02-SUMMARY.md`.
+- **Plan 04-03** (2026-06-05): Tagger session resume + 1-level undo — useTaggerStore.lastAction descriptor + undo action (routes keep-with-prior / keep-no-prior / skip) + scanId on state; TaggerView mount-time getSession AFTER loadQueue with identity-by-path restore + library-change fallback to 0; 500ms debounced tagger:set-session + beforeunload synchronous flush (Pitfall 1); Cmd-Z + Annuler button wired through reversed-direction slide. End-to-end RTL integration test covers the full flow. 3 commits. 452 tests green (26 new). Marks TAGG-09 + TAGG-10 complete; closes Phase 4 surface pending end-of-phase human-verify checkpoint. Deviations: [Rule 3] swapped fake-timer/advanceTimersByTimeAsync for waitFor({timeout:1500}) in 3 debounce tests (fake timers hang waitFor in jsdom); exact-match getByLabelText('Genre') in E2E test to disambiguate from "Genre détecté" chip. See `.planning/phases/04-tagger-core/04-03-SUMMARY.md`.
