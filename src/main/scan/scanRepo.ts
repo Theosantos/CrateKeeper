@@ -68,10 +68,19 @@ export function initScanSchema(db: Database.Database): void {
       'has_key INTEGER NOT NULL,' +
       'parsed_ok INTEGER NOT NULL,' +
       'error_message TEXT,' +
+      'genre TEXT,' +
       'PRIMARY KEY (scan_id, path)' +
       ');' +
       'CREATE INDEX IF NOT EXISTS idx_scanned_files_scan ON scanned_files(scan_id);'
   )
+  // Phase 4 Plan 01 — additive migration for existing DBs created under Phase 2
+  // schema (genre column added so taggerRepo.topGenres can GROUP BY it).
+  // Try/catch on the ALTER because better-sqlite3 throws if the column exists.
+  try {
+    db.exec('ALTER TABLE scanned_files ADD COLUMN genre TEXT')
+  } catch {
+    // column already exists — fine
+  }
   // Enforce ON DELETE CASCADE (off by default in SQLite per connection).
   db.pragma('foreign_keys = ON')
 }

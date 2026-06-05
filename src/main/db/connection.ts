@@ -8,11 +8,17 @@ import {
   createConversionRepo,
   type ConversionRepo
 } from '../conversion/conversionRepo'
+import {
+  initTaggerSchema,
+  createTaggerRepo,
+  type TaggerRepo
+} from '../tagger/taggerRepo'
 
 let dbInstance: Database.Database | null = null
 let settingsRepoInstance: SettingsRepo | null = null
 let scanRepoInstance: ScanRepo | null = null
 let conversionRepoInstance: ConversionRepo | null = null
+let taggerRepoInstance: TaggerRepo | null = null
 
 /**
  * Open (or return the cached) better-sqlite3 connection at userData/cratekeeper.db.
@@ -31,6 +37,7 @@ export function openDb(): Database.Database {
   initSettingsSchema(db)
   initScanSchema(db)
   initConversionSchema(db)
+  initTaggerSchema(db)
 
   dbInstance = db
   return db
@@ -69,6 +76,17 @@ export function getConversionRepo(): ConversionRepo {
   return conversionRepoInstance
 }
 
+/**
+ * Get the default TaggerRepo bound to the userData database.
+ * Tests should construct their own repo via createTaggerRepo(testDb).
+ */
+export function getTaggerRepo(): TaggerRepo {
+  if (!taggerRepoInstance) {
+    taggerRepoInstance = createTaggerRepo(openDb())
+  }
+  return taggerRepoInstance
+}
+
 export function closeDb(): void {
   if (dbInstance) {
     dbInstance.close()
@@ -76,5 +94,6 @@ export function closeDb(): void {
     settingsRepoInstance = null
     scanRepoInstance = null
     conversionRepoInstance = null
+    taggerRepoInstance = null
   }
 }
