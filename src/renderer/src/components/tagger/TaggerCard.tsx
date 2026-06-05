@@ -9,6 +9,10 @@ interface TaggerCardProps {
   file: ScannedFile
   onKeep: () => void
   onSkip: () => void
+  /** Plan 04-03: undo handler. Disabled when canUndo === false. */
+  onUndo?: () => void
+  /** Plan 04-03: when false, Annuler button is disabled (no lastAction). */
+  canUndo?: boolean
 }
 
 interface MergedCurrent {
@@ -52,7 +56,9 @@ const EMPTY: MergedCurrent = {
 export function TaggerCard({
   file,
   onKeep,
-  onSkip
+  onSkip,
+  onUndo,
+  canUndo = false
 }: TaggerCardProps): React.JSX.Element {
   const dirty = useTaggerStore((s) => s.dirtyEdits.get(file.path))
   const pending = useTaggerStore((s) => s.pendingEdits.get(file.path))
@@ -199,7 +205,9 @@ export function TaggerCard({
         <button
           type="button"
           className="tagger-action tagger-action--undo"
-          disabled
+          onClick={onUndo}
+          disabled={!canUndo}
+          aria-disabled={!canUndo}
           aria-label="Annuler"
         >
           Annuler (⌘Z)
