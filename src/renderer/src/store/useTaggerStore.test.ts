@@ -329,6 +329,189 @@ describe('useTaggerStore', () => {
     expect(useTaggerStore.getState().status).toBe('ready')
   })
 
+  // ───────────────────────── Plan 04-03: Undo state machine ─────────────────
+
+  it('initial lastAction is null', () => {
+    expect(useTaggerStore.getState().lastAction).toBeNull()
+  })
+
+  it('keep sets lastAction with type=keep, filePath, prior, savedEdit (new ref each call)', async () => {
+    installMock({ queue: [makeFile('/m/a.mp3'), makeFile('/m/b.mp3')] })
+    await useTaggerStore.getState().loadQueue()
+    useTaggerStore.getState().setDirtyEdit('genre', 'Techno')
+    const r1 = await useTaggerStore.getState().keep()
+    const la1 = useTaggerStore.getState().lastAction
+    expect(la1).not.toBeNull()
+    expect(la1?.type).toBe('keep')
+    expect(la1?.filePath).toBe('/m/a.mp3')
+    expect(la1?.prior).toBeNull()
+    expect(la1?.savedEdit?.genre).toBe('Techno')
+    expect(r1?.prior).toBeNull()
+    // Second keep produces a NEW LastAction instance.
+    await useTaggerStore.getState().keep()
+    const la2 = useTaggerStore.getState().lastAction
+    expect(la2).not.toBe(la1)
+    expect(la2?.filePath).toBe('/m/b.mp3')
+  })
+
+  it('skip sets lastAction with type=skip + filePath', async () => {
+    installMock({ queue: [makeFile('/m/a.mp3'), makeFile('/m/b.mp3')] })
+    await useTaggerStore.getState().loadQueue()
+    useTaggerStore.getState().skip()
+    const la = useTaggerStore.getState().lastAction
+    expect(la).toEqual({ type: 'skip', filePath: '/m/a.mp3' })
+  })
+
+  it('undo with lastAction=null is a no-op (state unchanged)', async () => {
+    const api = installMock({ queue: [makeFile('/m/a.mp3')] })
+    await useTaggerStore.getState().loadQueue()
+    const before = useTaggerStore.getState()
+    await useTaggerStore.getState().undo()
+    const after = useTaggerStore.getState()
+    expect(after.currentIndex).toBe(before.currentIndex)
+    expect(after.pendingEdits).toBe(before.pendingEdits)
+    expect(after.lastAction).toBeNull()
+    expect(api.saveEdit).not.toHaveBeenCalled()
+    expect(api.deleteEdit).not.toHaveBeenCalled()
+  })
+
+  it('undo with type=skip rewinds currentIndex by 1, clears lastAction, no IPC', async () => {
+    const api = installMock({
+      queue: [makeFile('/m/a.mp3'), makeFile('/m/b.mp3')]
+    })
+    await useTaggerStore.getState().loadQueue()
+    useTaggerStore.getState().skip()
+    expect(useTaggerStore.getState().currentIndex).toBe(1)
+    await useTaggerStore.getState().undo()
+    expect(useTaggerStore.getState().currentIndex).toBe(0)
+    expect(useTaggerStore.getState().lastAction).toBeNull()
+    expect(api.saveEdit).not.toHaveBeenCalled()
+    expect(api.deleteEdit).not.toHaveBeenCalled()
+  })
+
+  it('undo with type=keep + prior=null calls deleteEdit, removes pending row, rewinds index', async () => {
+    const api = installMock({
+      queue: [makeFile('/m/a.mp3'), makeFile('/m/b.mp3')]
+    })
+    await useTaggerStore.getState().loadQueue()
+    useTaggerStore.getState().setDirtyEdit('genre', 'Techno')
+    await useTaggerStore.getState().keep()
+    expect(useTaggerStore.getState().pendingEdits.has('/m/a.mp3')).toBe(true)
+
+    await useTaggerStore.getState().undo()
+    expect(api.deleteEdit).toHaveBeenCalledWith('/m/a.mp3')
+    expect(useTaggerStore.getState().pendingEdits.has('/m/a.mp3')).toBe(false)
+    expect(useTaggerStore.getState().currentIndex).toBe(0)
+    expect(useTaggerStore.getState().lastAction).toBeNull()
+  })
+
+  it('undo with type=keep + prior!=null calls saveEdit(prior), restores pending row, rewinds index', async () => {
+    const priorEdit: PendingTagEdit = {
+      filePath: '/m/a.mp3',
+      genre: 'Disco',
+      bpm: 110,
+      key: '7A',
+      artist: null,
+      title: null,
+      comment: null,
+      rating: 3,
+      updatedAt: 1,
+      appliedAt: null
+    }
+    const api = installMock({
+      queue: [makeFile('/m/a.mp3'), makeFile('/m/b.mp3')],
+      pendingEdits: { '/m/a.mp3': priorEdit }
+    })
+    await useTaggerStore.getState().loadQueue()
+    useTaggerStore.getState().setDirtyEdit('genre', 'Techno')
+    await useTaggerStore.getState().keep()
+    expect(
+      useTaggerStore.getState().pendingEdits.get('/m/a.mp3')?.genre
+    ).toBe('Techno')
+    // saveEdit called once for the keep.
+    expect(api.saveEdit).toHaveBeenCalledTimes(1)
+
+    await useTaggerStore.getState().undo()
+    // saveEdit called a second time with the prior values.
+    expect(api.saveEdit).toHaveBeenCalledTimes(2)
+    expect(api.saveEdit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        filePath: '/m/a.mp3',
+        genre: 'Disco',
+        bpm: 110,
+        key: '7A',
+        rating: 3
+      })
+    )
+    expect(api.deleteEdit).not.toHaveBeenCalled()
+    expect(useTaggerStore.getState().pendingEdits.get('/m/a.mp3')).toEqual(
+      priorEdit
+    )
+    expect(useTaggerStore.getState().currentIndex).toBe(0)
+    expect(useTaggerStore.getState().lastAction).toBeNull()
+  })
+
+  it('double-undo: second undo is a no-op (no extra IPC)', async () => {
+    const api = installMock({
+      queue: [makeFile('/m/a.mp3'), makeFile('/m/b.mp3')]
+    })
+    await useTaggerStore.getState().loadQueue()
+    useTaggerStore.getState().setDirtyEdit('genre', 'Techno')
+    await useTaggerStore.getState().keep()
+    await useTaggerStore.getState().undo()
+    const saveCount = api.saveEdit.mock.calls.length
+    const deleteCount = api.deleteEdit.mock.calls.length
+    await useTaggerStore.getState().undo()
+    expect(api.saveEdit.mock.calls.length).toBe(saveCount)
+    expect(api.deleteEdit.mock.calls.length).toBe(deleteCount)
+    expect(useTaggerStore.getState().lastAction).toBeNull()
+  })
+
+  it('keep after undo replaces lastAction (no stacking — locked 1-level)', async () => {
+    installMock({
+      queue: [makeFile('/m/a.mp3'), makeFile('/m/b.mp3')]
+    })
+    await useTaggerStore.getState().loadQueue()
+    useTaggerStore.getState().setDirtyEdit('genre', 'Techno')
+    await useTaggerStore.getState().keep()
+    await useTaggerStore.getState().undo()
+    expect(useTaggerStore.getState().lastAction).toBeNull()
+    // Now redo a keep.
+    useTaggerStore.getState().setDirtyEdit('genre', 'House')
+    await useTaggerStore.getState().keep()
+    const la = useTaggerStore.getState().lastAction
+    expect(la?.type).toBe('keep')
+    expect(la?.savedEdit?.genre).toBe('House')
+  })
+
+  it('lastAction transitions create a NEW object reference each time', async () => {
+    installMock({
+      queue: [makeFile('/m/a.mp3'), makeFile('/m/b.mp3'), makeFile('/m/c.mp3')]
+    })
+    await useTaggerStore.getState().loadQueue()
+    await useTaggerStore.getState().keep()
+    const r1 = useTaggerStore.getState().lastAction
+    useTaggerStore.getState().skip()
+    const r2 = useTaggerStore.getState().lastAction
+    expect(r2).not.toBe(r1)
+    expect(r2?.type).toBe('skip')
+  })
+
+  it('reset clears lastAction back to null', async () => {
+    installMock({ queue: [makeFile('/m/a.mp3'), makeFile('/m/b.mp3')] })
+    await useTaggerStore.getState().loadQueue()
+    await useTaggerStore.getState().keep()
+    expect(useTaggerStore.getState().lastAction).not.toBeNull()
+    useTaggerStore.getState().reset()
+    expect(useTaggerStore.getState().lastAction).toBeNull()
+  })
+
+  it('loadQueue stores scanId on state', async () => {
+    installMock({ queue: [makeFile('/m/a.mp3')] })
+    await useTaggerStore.getState().loadQueue()
+    expect(useTaggerStore.getState().scanId).toBe('scan-1')
+  })
+
   it('selectCurrentFile returns queue[currentIndex] or null', async () => {
     installMock({ queue: [makeFile('/m/a.mp3'), makeFile('/m/b.mp3')] })
     await useTaggerStore.getState().loadQueue()

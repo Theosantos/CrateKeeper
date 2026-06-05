@@ -13,8 +13,8 @@ import type {
  *  - dirtyEdits override pendingEdits when displaying / persisting
  *
  * Plan 04-02 covers: queue + dirty edits + presets + mute + Keep/Skip flow.
- * Plan 04-03 will layer: session resume + 1-level Undo + debounced session
- * writes on top (the `prior` returned by keep() is the undo snapshot).
+ * Plan 04-03 layers: 1-level Undo state machine (lastAction) + scanId tracking.
+ * Session resume + debounced persistence lives in TaggerView (Plan 04-03 Task 2).
  */
 
 export type TaggerStatus = 'loading' | 'ready' | 'empty'
@@ -45,9 +45,23 @@ export interface KeepResult {
   prior: PendingTagEdit | null
 }
 
+/**
+ * One-level undo descriptor. LOCKED (04-CONTEXT.md):
+ *  - type='keep' restores the prior pending row (or deletes if there was none)
+ *  - type='skip' rewinds currentIndex by 1
+ *  - cleared in the SAME set() that consumes it — no double-undo possible
+ */
+export interface LastAction {
+  type: 'keep' | 'skip'
+  filePath: string
+  prior?: PendingTagEdit | null
+  savedEdit?: SaveTagEditInput
+}
+
 export interface TaggerState {
   status: TaggerStatus
   queue: ScannedFile[]
+  scanId: string | null
   currentIndex: number
   dirtyEdits: Map<string, DirtyEdit>
   pendingEdits: Map<string, PendingTagEdit>
@@ -55,6 +69,7 @@ export interface TaggerState {
   genrePresetsSource: 'library' | 'defaults' | 'mixed' | null
   muteEnabled: boolean
   error: string | null
+  lastAction: LastAction | null
 
   loadQueue: () => Promise<void>
   loadGenrePresets: () => Promise<void>
@@ -67,19 +82,22 @@ export interface TaggerState {
   toggleMute: () => Promise<void>
   keep: () => Promise<KeepResult | null>
   skip: () => { filePath: string } | null
+  undo: () => Promise<void>
   reset: () => void
 }
 
 const INITIAL = {
   status: 'loading' as TaggerStatus,
   queue: [] as ScannedFile[],
+  scanId: null as string | null,
   currentIndex: 0,
   dirtyEdits: new Map<string, DirtyEdit>(),
   pendingEdits: new Map<string, PendingTagEdit>(),
   genrePresets: [] as string[],
   genrePresetsSource: null as 'library' | 'defaults' | 'mixed' | null,
   muteEnabled: false,
-  error: null as string | null
+  error: null as string | null,
+  lastAction: null as LastAction | null
 }
 
 export const useTaggerStore = create<TaggerState>((set, get) => ({
@@ -93,6 +111,7 @@ export const useTaggerStore = create<TaggerState>((set, get) => ({
     )
     set({
       queue: r.files,
+      scanId: r.scanId,
       pendingEdits: pending,
       currentIndex: 0,
       status: r.files.length === 0 ? 'empty' : 'ready'
@@ -208,7 +227,13 @@ export const useTaggerStore = create<TaggerState>((set, get) => ({
     set({
       pendingEdits: nextPending,
       dirtyEdits: nextDirty,
-      currentIndex: currentIndex + 1
+      currentIndex: currentIndex + 1,
+      lastAction: {
+        type: 'keep',
+        filePath: file.path,
+        prior,
+        savedEdit: merged
+      }
     })
     return { filePath: file.path, edit: merged, prior }
   },
@@ -219,8 +244,57 @@ export const useTaggerStore = create<TaggerState>((set, get) => ({
     if (file === undefined) return null
     const nextDirty = new Map(dirtyEdits)
     nextDirty.delete(file.path)
-    set({ dirtyEdits: nextDirty, currentIndex: currentIndex + 1 })
+    set({
+      dirtyEdits: nextDirty,
+      currentIndex: currentIndex + 1,
+      lastAction: { type: 'skip', filePath: file.path }
+    })
     return { filePath: file.path }
+  },
+
+  async undo(): Promise<void> {
+    const { lastAction, pendingEdits, currentIndex } = get()
+    if (lastAction === null) return
+    if (lastAction.type === 'skip') {
+      set({
+        currentIndex: Math.max(0, currentIndex - 1),
+        lastAction: null
+      })
+      return
+    }
+    // type === 'keep'
+    const filePath = lastAction.filePath
+    const prior = lastAction.prior ?? null
+    if (prior === null) {
+      // Undoing a Keep where there was no prior pending row → delete.
+      await window.crateKeeper.tagger.deleteEdit(filePath)
+      const nextPending = new Map(pendingEdits)
+      nextPending.delete(filePath)
+      set({
+        pendingEdits: nextPending,
+        currentIndex: Math.max(0, currentIndex - 1),
+        lastAction: null
+      })
+      return
+    }
+    // Restore prior.
+    await window.crateKeeper.tagger.saveEdit({
+      filePath,
+      genre: prior.genre,
+      bpm: prior.bpm,
+      key: prior.key,
+      artist: prior.artist,
+      title: prior.title,
+      comment: prior.comment,
+      rating: prior.rating
+    })
+    const nextPending = new Map(pendingEdits)
+    nextPending.set(filePath, prior)
+    set({
+      pendingEdits: nextPending,
+      currentIndex: Math.max(0, currentIndex - 1),
+      lastAction: null
+    })
   },
 
   reset(): void {
@@ -229,7 +303,8 @@ export const useTaggerStore = create<TaggerState>((set, get) => ({
       dirtyEdits: new Map(),
       pendingEdits: new Map(),
       queue: [],
-      genrePresets: []
+      genrePresets: [],
+      lastAction: null
     })
   }
 }))
