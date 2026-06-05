@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-06-03T16:01:40.686Z"
+last_updated: "2026-06-05T00:40:51.143Z"
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 8
-  completed_plans: 5
-  percent: 33
+  completed_phases: 3
+  total_plans: 11
+  completed_plans: 9
+  percent: 50
 ---
 
 # Project State — DJ Utils
@@ -68,3 +68,7 @@ Walking skeleton end-to-end: renderer ↔ window.djUtils ↔ main ↔ better-sql
 ### Blockers
 
 (none — Phase 1 checkpoint approved by user 2026-05-29)
+
+### Phase 4 — Tagger Core (in progress, 2026-06-05)
+
+- **Plan 04-01** (2026-06-05): Tagger main-process backbone — 6 IPC channels (tagger:*), pending_tag_edits + tagger_session SQLite tables, cratekeeper:// custom protocol with folder + AUDIO_EXTS gates, mergeGenrePresets helper, scanRepo.findLatestScan/listIncompleteFiles, autoplayPolicy unlock. 7 commits. 351 tests green (64 new). Deviations: [Rule 2] additive `scanned_files.genre TEXT` column (Phase 2 schema was missing it for topGenres). See `.planning/phases/04-tagger-core/04-01-SUMMARY.md`.
