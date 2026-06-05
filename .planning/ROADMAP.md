@@ -106,6 +106,6 @@
 | 1. Foundation | 2/2 | Complete | 2026-05-29 |
 | 2. File Scanning & Library View | 3/3 | Complete   | 2026-05-29 |
 | 3. FFmpeg Conversion Pipeline | 3/3 | Complete   | 2026-06-03 |
-| 4. Tagger Core | 0/? | Not started | - |
+| 4. Tagger Core | 2/3 | In Progress|  |
 | 5. Tag Writing & Rekordbox Compatibility | 0/? | Not started | - |
 | 6. Distribution | 0/? | Not started | - |
