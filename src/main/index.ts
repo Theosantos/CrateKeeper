@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, protocol } from 'electron'
 import { join } from 'path'
 import { Worker } from 'node:worker_threads'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -7,15 +7,40 @@ import { registerDialogHandlers } from './ipc/dialog'
 import { registerSettingsHandlers } from './ipc/settings'
 import { registerScanHandlers, makeRendererSender } from './ipc/scan'
 import { createScanController } from './scan/controller'
-import { getScanRepo, getSettingsRepo, getConversionRepo } from './db/connection'
+import {
+  getScanRepo,
+  getSettingsRepo,
+  getConversionRepo,
+  getTaggerRepo
+} from './db/connection'
 import {
   registerConversionHandlers,
   makeConversionSender
 } from './ipc/conversion'
 import { createConversionController } from './conversion/controller'
 import { resolveFfmpegPath } from './conversion/ffmpegPath'
+import {
+  AUDIO_PROTOCOL_SCHEME,
+  registerAudioProtocol
+} from './tagger/audioProtocol'
+import { registerTaggerHandlers } from './ipc/tagger'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const ffmpegStatic = require('ffmpeg-static') as string
+
+// Pitfall 2: must run before app.whenReady so <audio> treats cratekeeper://
+// as a streaming origin (Phase 4 Tagger preview).
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: AUDIO_PROTOCOL_SCHEME,
+    privileges: {
+      stream: true,
+      supportFetchAPI: true,
+      secure: true,
+      standard: true,
+      bypassCSP: false
+    }
+  }
+])
 
 let mainWindow: BrowserWindow | null = null
 
@@ -30,7 +55,9 @@ function createWindow(): BrowserWindow {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      // Pitfall 5: Tagger preview auto-plays on card mount (no user gesture required)
+      autoplayPolicy: 'no-user-gesture-required'
     }
   })
 
@@ -129,6 +156,17 @@ app.whenReady().then(() => {
     repo: conversionRepo,
     settingsRepo: getSettingsRepo(),
     getSender: () => mainWindow?.webContents ?? null
+  })
+
+  // Phase 4: Tagger backbone. Custom protocol handler streams audio files
+  // under settings.rootFolder; IPC handlers expose the 6-channel surface
+  // documented in 04-CONTEXT.md.
+  registerAudioProtocol(getSettingsRepo())
+  registerTaggerHandlers({
+    ipcMain,
+    taggerRepo: getTaggerRepo(),
+    scanRepo: getScanRepo(),
+    settingsRepo: getSettingsRepo()
   })
 
   mainWindow = createWindow()
