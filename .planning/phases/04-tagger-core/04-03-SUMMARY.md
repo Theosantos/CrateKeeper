@@ -140,6 +140,37 @@ None new. T-4-09 / T-4-10 / T-4-11 mitigations from the plan's threat register a
 
 Carry-forward T-4-01..08 (folder allowlist, V5 validation, protocol gating, sandboxed preload, etc.) from Plans 04-01 + 04-02 remain in force; this plan adds no new IPC surface.
 
+## Post-checkpoint UX fixes (user feedback)
+
+The first human-verify pass was rejected. User report verbatim:
+
+> Il n'y a pas de sons qui sort et pour la clé et le bpm pas besoin de
+> l'éditer dans cet outil. Rekordbox le fait déjà très bien et ce n'est
+> pas à l'oreille qu'on va le trouver. Il faudrait un slider pour savoir
+> où on en est dans la musique et pouvoir bouger dans la chanson. Pour
+> la proposition de séparation de titre : enlever l'extension du fichier,
+> actuellement le .m4a est proposé comme élement du titre ou de l'artiste.
+
+Four atomic fixes applied on the same branch (phase-04-tagger), tests
+re-run green, build re-run green:
+
+| # | Fix | Commit | Files |
+| - | --- | ------ | ----- |
+| 1 | Silent audio: explicit `el.muted = prop` + `el.load()` on src change + muted-fallback retry on play() rejection; muted now in effect deps. | 4641b3f | `src/renderer/src/components/tagger/AudioPreview.tsx` |
+| 2 | Remove BPM and Key editable fields from TaggerCard. Read-only chips for `hasBpm`/`hasKey` stay; `SaveTagEditInput` schema unchanged for forward compat. Updated TaggerCard tests. | 93faf4c | `src/renderer/src/components/tagger/TaggerCard.tsx`, `TaggerCard.test.tsx` |
+| 3 | Seek slider with `0:00 / 0:00` mm:ss readout; removed the 30s sub-segment loop (`loop` attr now restarts the full track); native `<audio>` chrome hidden; transport uses tokenised colours only (`accent-color: var(--color-accent)`); compositor-friendly. | 14de9e1 | `src/renderer/src/components/tagger/AudioPreview.tsx`, `AudioPreview.test.tsx`, `tagger.css` |
+| 4 | `suggestSplits` strips a trailing audio extension (case-insensitive, mirrors `AUDIO_EXTS`) before scanning for separators. Regression tests for `.m4a`, `.MP3`, `.flac`, and non-audio extension untouched-passthrough. | 38194bb | `src/renderer/src/components/tagger/splitDetection.ts`, `splitDetection.test.ts` |
+
+Re-verification gates:
+
+- `npm test -- --run` → 458/458 green (was 452; +6 net — added 1 TaggerCard test, 4 split-detection tests, 2 seek-slider tests, removed BPM-clamp test and 30s-loop test).
+- `npm run build` → exit 0.
+- No regression in undo / session restore / keyboard hooks (all suites green).
+- Branch unchanged: still `phase-04-tagger`.
+
+Re-checkpoint stays the responsibility of the user — do NOT re-claim
+approval on their behalf. This summary documents the gap-closure only.
+
 ## Self-Check: PASSED
 
 Files exist:
