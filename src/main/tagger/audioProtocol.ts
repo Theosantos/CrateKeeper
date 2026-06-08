@@ -4,6 +4,26 @@ import type { SettingsRepo } from '../db/settingsRepo'
 import { AUDIO_EXTS } from '../workers/scanCore'
 
 /**
+ * MIME type mapping for the AUDIO_EXTS allowlist. Chromium's <audio> element
+ * requires a recognised audio Content-Type to actually decode and play the
+ * stream — without it the resource loads silently. `net.fetch('file://...')`
+ * does not always set a useful Content-Type, so we overwrite it explicitly
+ * based on the file extension we already validated above.
+ */
+const AUDIO_MIME: Record<string, string> = {
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.mp4': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.flac': 'audio/flac',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.opus': 'audio/ogg',
+  '.aiff': 'audio/aiff',
+  '.aif': 'audio/aiff'
+}
+
+/**
  * Custom protocol scheme used by the Tagger preview <audio> element.
  *
  * URLs look like `cratekeeper://audio/<encoded-absolute-path>` so the
@@ -50,6 +70,21 @@ export function registerAudioProtocol(settingsRepo: SettingsRepo): void {
       return new Response('Unsupported Media Type', { status: 415 })
     }
 
-    return net.fetch('file://' + abs)
+    // Forward to net.fetch but force the Content-Type so Chromium's <audio>
+    // element recognises the stream. file:// fetches frequently arrive without
+    // a usable Content-Type, which makes the media element load silently.
+    const upstream = await net.fetch('file://' + abs)
+    const mime = AUDIO_MIME[ext] ?? 'application/octet-stream'
+    const headers = new Headers(upstream.headers)
+    headers.set('Content-Type', mime)
+    // Hint range support so seek works smoothly across the full track.
+    if (!headers.has('Accept-Ranges')) {
+      headers.set('Accept-Ranges', 'bytes')
+    }
+    return new Response(upstream.body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers
+    })
   })
 }

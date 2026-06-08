@@ -52,9 +52,24 @@ export function AudioPreview({
     const onLoaded = (): void => {
       setDuration(Number.isFinite(el.duration) ? el.duration : 0)
     }
+    const onError = (): void => {
+      const mediaErr = el.error
+      // eslint-disable-next-line no-console
+      console.error('[tagger] audio element error', {
+        src: el.currentSrc || el.src,
+        code: mediaErr?.code,
+        message: mediaErr?.message
+      })
+    }
+    const onStalled = (): void => {
+      // eslint-disable-next-line no-console
+      console.warn('[tagger] audio stalled', el.currentSrc || el.src)
+    }
     el.addEventListener('timeupdate', onTime)
     el.addEventListener('loadedmetadata', onLoaded)
     el.addEventListener('durationchange', onLoaded)
+    el.addEventListener('error', onError)
+    el.addEventListener('stalled', onStalled)
     // Force an explicit load after src changes — without this Chromium sometimes
     // defers loading the new media until the next user gesture, which makes
     // play() resolve against the previous resource (silent).
@@ -89,6 +104,8 @@ export function AudioPreview({
       el.removeEventListener('timeupdate', onTime)
       el.removeEventListener('loadedmetadata', onLoaded)
       el.removeEventListener('durationchange', onLoaded)
+      el.removeEventListener('error', onError)
+      el.removeEventListener('stalled', onStalled)
       el.pause()
       el.removeAttribute('src')
       try {

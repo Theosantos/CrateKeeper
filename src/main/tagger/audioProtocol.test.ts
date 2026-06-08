@@ -127,6 +127,33 @@ describe('audioProtocol', () => {
     expect(net.fetch).toHaveBeenCalledWith('file:///Music/song.mp3')
   })
 
+  it('sets Content-Type by extension so <audio> can decode the stream', async () => {
+    registerAudioProtocol(makeSettings('/Music'))
+    const handler = captureHandler()
+    const cases: Array<[string, string]> = [
+      ['/Music/a.mp3', 'audio/mpeg'],
+      ['/Music/a.m4a', 'audio/mp4'],
+      ['/Music/a.flac', 'audio/flac'],
+      ['/Music/a.wav', 'audio/wav'],
+      ['/Music/a.ogg', 'audio/ogg'],
+      ['/Music/a.opus', 'audio/ogg'],
+      ['/Music/a.aac', 'audio/aac']
+    ]
+    for (const [p, expected] of cases) {
+      const res = await handler(makeReq('cratekeeper://audio/' + encodeURIComponent(p)))
+      expect(res.headers.get('Content-Type')).toBe(expected)
+    }
+  })
+
+  it('advertises Accept-Ranges: bytes for seek support', async () => {
+    registerAudioProtocol(makeSettings('/Music'))
+    const handler = captureHandler()
+    const res = await handler(
+      makeReq('cratekeeper://audio/' + encodeURIComponent('/Music/song.mp3'))
+    )
+    expect(res.headers.get('Accept-Ranges')).toBe('bytes')
+  })
+
   it('decodes URL pathname (handles spaces)', async () => {
     registerAudioProtocol(makeSettings('/Music'))
     const handler = captureHandler()
