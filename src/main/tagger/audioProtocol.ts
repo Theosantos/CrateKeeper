@@ -134,7 +134,7 @@ export function registerAudioProtocol(settingsRepo: SettingsRepo): void {
     if (range !== null) {
       const { start, end } = range
       const slice = toFreshUint8(data, start, end)
-      return new Response(slice, {
+      return new Response(slice as BodyInit, {
         status: 206,
         statusText: 'Partial Content',
         headers: {
@@ -148,7 +148,7 @@ export function registerAudioProtocol(settingsRepo: SettingsRepo): void {
     }
 
     const full = toFreshUint8(data, 0, size - 1)
-    return new Response(full, {
+    return new Response(full as BodyInit, {
       status: 200,
       headers: {
         'Content-Type': mime,
