@@ -79,20 +79,6 @@ export function TaggerCard({
   const basename = basenameOf(file.path)
   const parent = parentOf(file.path)
 
-  const onBpmChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const v = e.target.value
-    if (v === '') {
-      setDirtyEdit('bpm', null)
-      return
-    }
-    const n = Number(v)
-    if (!Number.isInteger(n) || n < 1 || n > 399) {
-      setDirtyEdit('bpm', null)
-      return
-    }
-    setDirtyEdit('bpm', n)
-  }
-
   return (
     <article
       className="tagger-card"
@@ -155,26 +141,6 @@ export function TaggerCard({
             maxLength={500}
             value={current.genre ?? ''}
             onChange={(e) => setDirtyEdit('genre', e.target.value)}
-          />
-        </label>
-        <label className="tagger-field tagger-field--inline">
-          <span className="tagger-field__label">BPM</span>
-          <input
-            type="number"
-            min={1}
-            max={399}
-            step={1}
-            value={current.bpm ?? ''}
-            onChange={onBpmChange}
-          />
-        </label>
-        <label className="tagger-field tagger-field--inline">
-          <span className="tagger-field__label">Key</span>
-          <input
-            type="text"
-            maxLength={16}
-            value={current.key ?? ''}
-            onChange={(e) => setDirtyEdit('key', e.target.value)}
           />
         </label>
         <label className="tagger-field">

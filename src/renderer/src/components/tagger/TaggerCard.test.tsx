@@ -96,7 +96,7 @@ describe('TaggerCard', () => {
     expect(screen.getByText('mp3')).toBeInTheDocument()
   })
 
-  it('renders editable inputs for Artist/Title/Genre/BPM/Key/Commentaire', () => {
+  it('renders editable inputs for Artist/Title/Genre/Commentaire', () => {
     const f = makeFile('/m/a.mp3')
     seedStore(f)
     render(<TaggerCard file={f} onKeep={() => {}} onSkip={() => {}} />)
@@ -104,9 +104,17 @@ describe('TaggerCard', () => {
     expect(screen.getByText('Artiste')).toBeInTheDocument()
     expect(screen.getByText('Titre')).toBeInTheDocument()
     expect(screen.getByText('Genre')).toBeInTheDocument()
-    expect(screen.getByText('BPM')).toBeInTheDocument()
-    expect(screen.getByText('Key')).toBeInTheDocument()
     expect(screen.getByText('Commentaire')).toBeInTheDocument()
+  })
+
+  it('does NOT render BPM or Key editable fields (Rekordbox owns those)', () => {
+    const f = makeFile('/m/a.mp3')
+    seedStore(f)
+    render(<TaggerCard file={f} onKeep={() => {}} onSkip={() => {}} />)
+    // The label "BPM détecté" chip may still appear if hasBpm is true, but
+    // there must be no editable input labelled exactly "BPM" or "Key".
+    expect(screen.queryByText('BPM', { selector: '.tagger-field__label' })).toBeNull()
+    expect(screen.queryByText('Key', { selector: '.tagger-field__label' })).toBeNull()
   })
 
   it('typing in Artist input writes to dirtyEdits.artist', () => {
@@ -121,19 +129,7 @@ describe('TaggerCard', () => {
     )
   })
 
-  it('BPM input clears to null on out-of-range', () => {
-    const f = makeFile('/m/a.mp3')
-    seedStore(f)
-    render(<TaggerCard file={f} onKeep={() => {}} onSkip={() => {}} />)
-    const bpmLabel = screen.getByText('BPM').closest('label')!
-    const input = bpmLabel.querySelector('input')!
-    fireEvent.change(input, { target: { value: '124' } })
-    expect(useTaggerStore.getState().dirtyEdits.get('/m/a.mp3')?.bpm).toBe(124)
-    fireEvent.change(input, { target: { value: '500' } })
-    expect(useTaggerStore.getState().dirtyEdits.get('/m/a.mp3')?.bpm).toBeNull()
-  })
-
-  it('GenrePresetBar receives store genrePresets and applies on click', () => {
+it('GenrePresetBar receives store genrePresets and applies on click', () => {
     const f = makeFile('/m/a.mp3')
     seedStore(f)
     render(<TaggerCard file={f} onKeep={() => {}} onSkip={() => {}} />)
