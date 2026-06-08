@@ -21,12 +21,43 @@ export interface SplitSuggestion {
 
 const SEPARATORS = [' - ', ' -- ', ' – '] as const
 
+/**
+ * Audio file extensions stripped before separator scanning. Mirrors
+ * AUDIO_EXTS from src/main/workers/scanCore.ts — duplicated here as a
+ * renderer-side const because that module is main-only.
+ *
+ * Without this, a basename like "Artist - Track.m4a" would surface
+ * ".m4a" as part of the suggested title.
+ */
+const AUDIO_EXTS = [
+  '.mp3',
+  '.flac',
+  '.m4a',
+  '.aac',
+  '.wav',
+  '.aiff',
+  '.aif',
+  '.ogg',
+  '.opus'
+] as const
+
+function stripAudioExt(s: string): string {
+  const lower = s.toLowerCase()
+  for (const ext of AUDIO_EXTS) {
+    if (lower.endsWith(ext)) {
+      return s.slice(0, s.length - ext.length)
+    }
+  }
+  return s
+}
+
 export function suggestSplits(rawTitle: string): SplitSuggestion | null {
+  const stripped = stripAudioExt(rawTitle)
   for (const sep of SEPARATORS) {
-    const idx = rawTitle.indexOf(sep)
-    if (idx > 0 && idx + sep.length < rawTitle.length) {
-      const left = rawTitle.slice(0, idx).trim()
-      const right = rawTitle.slice(idx + sep.length).trim()
+    const idx = stripped.indexOf(sep)
+    if (idx > 0 && idx + sep.length < stripped.length) {
+      const left = stripped.slice(0, idx).trim()
+      const right = stripped.slice(idx + sep.length).trim()
       if (left.length > 0 && right.length > 0) {
         return {
           a: { artist: left, title: right },

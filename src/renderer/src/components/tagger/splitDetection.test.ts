@@ -42,4 +42,25 @@ describe('suggestSplits', () => {
     const r = suggestSplits('  Artist  -   Title  ')
     expect(r?.a).toEqual({ artist: 'Artist', title: 'Title' })
   })
+
+  it('strips audio extension before splitting (.m4a)', () => {
+    const r = suggestSplits('Artist - Track.m4a')
+    expect(r?.a).toEqual({ artist: 'Artist', title: 'Track' })
+    expect(r?.b).toEqual({ artist: 'Track', title: 'Artist' })
+  })
+
+  it('strips .mp3 extension case-insensitively', () => {
+    const r = suggestSplits('Daft Punk - Around The World.MP3')
+    expect(r?.a).toEqual({ artist: 'Daft Punk', title: 'Around The World' })
+  })
+
+  it('strips .flac extension', () => {
+    const r = suggestSplits('Foo - Bar.flac')
+    expect(r?.a).toEqual({ artist: 'Foo', title: 'Bar' })
+  })
+
+  it('leaves non-audio extensions untouched', () => {
+    const r = suggestSplits('Artist - Track.txt')
+    expect(r?.a).toEqual({ artist: 'Artist', title: 'Track.txt' })
+  })
 })
