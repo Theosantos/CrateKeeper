@@ -40,10 +40,17 @@ export function AudioPreview({
   const [duration, setDuration] = useState(0)
   const src = 'cratekeeper://audio/' + encodeURIComponent(filePath)
 
+  // Sync mute imperatively without re-running the load/play cycle. Putting
+  // `muted` in the main effect deps caused the cycle to restart on every
+  // toggle, which aborted in-flight play() promises (#audio-silent).
+  useEffect(() => {
+    const el = audioRef.current
+    if (el !== null) el.muted = muted
+  }, [muted])
+
   useEffect(() => {
     const el = audioRef.current
     if (el === null) return
-    el.muted = muted
     setCurrentTime(0)
     setDuration(0)
     const onTime = (): void => {
@@ -70,9 +77,14 @@ export function AudioPreview({
     el.addEventListener('durationchange', onLoaded)
     el.addEventListener('error', onError)
     el.addEventListener('stalled', onStalled)
-    // Force an explicit load after src changes — without this Chromium sometimes
-    // defers loading the new media until the next user gesture, which makes
-    // play() resolve against the previous resource (silent).
+
+    // Track whether this effect's lifetime is still current. React StrictMode
+    // (and any parent re-render) tears the effect down and recreates it; we
+    // must NOT touch the element from a stale closure.
+    let cancelled = false
+
+    // Force an explicit load after src changes — without this Chromium can
+    // defer loading the new media until the next user gesture.
     try {
       el.load()
     } catch {
@@ -82,8 +94,16 @@ export function AudioPreview({
       const p = el.play()
       if (p !== undefined && typeof p.catch === 'function') {
         p.catch((err: unknown) => {
-          // Last-resort fallback: if the browser still refuses unmuted autoplay,
-          // start muted so the timeline still progresses; user can then unmute.
+          // AbortError just means the play() was interrupted by a follow-up
+          // pause() (typical of StrictMode double-mount or a fast src change).
+          // The next effect run will issue a fresh play(); do NOT mute as a
+          // fallback in this case — muting on AbortError is what made the
+          // audio appear silent.
+          if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) {
+            return
+          }
+          // Real autoplay rejection (NotAllowedError etc.): fall back to muted
+          // so the timeline still progresses; the user can unmute via the UI.
           if (!el.muted) {
             el.muted = true
             const retry = el.play()
@@ -101,20 +121,23 @@ export function AudioPreview({
       /* play() threw synchronously (rare); ignore */
     }
     return () => {
+      cancelled = true
       el.removeEventListener('timeupdate', onTime)
       el.removeEventListener('loadedmetadata', onLoaded)
       el.removeEventListener('durationchange', onLoaded)
       el.removeEventListener('error', onError)
       el.removeEventListener('stalled', onStalled)
-      el.pause()
-      el.removeAttribute('src')
+      // Only pause — do NOT clear src/load(). The next effect run (with the
+      // same or new filePath) will issue its own load()+play(); clearing src
+      // here just creates pointless network thrash and was contributing to
+      // the AbortError loop.
       try {
-        el.load()
+        el.pause()
       } catch {
         /* ignore */
       }
     }
-  }, [filePath, muted])
+  }, [filePath])
 
   if (isAiff(filePath)) {
     return (
