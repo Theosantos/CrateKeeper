@@ -32,19 +32,41 @@ export function AudioPreview({
   useEffect(() => {
     const el = audioRef.current
     if (el === null) return
+    // Force an explicit load after src changes — without this Chromium sometimes
+    // defers loading the new media until the next user gesture, which makes
+    // play() resolve against the previous resource (silent).
+    el.muted = muted
     const onTime = (): void => {
       if (el.currentTime >= 30) {
         el.currentTime = 0
       }
     }
     el.addEventListener('timeupdate', onTime)
+    try {
+      el.load()
+    } catch {
+      /* load() may throw in jsdom; ignore */
+    }
     // Autoplay policy is unlocked at the main bootstrap (Plan 04-01).
     // jsdom's HTMLMediaElement.play() returns undefined; guard accordingly.
     try {
       const p = el.play()
       if (p !== undefined && typeof p.catch === 'function') {
-        p.catch(() => {
-          /* autoplay rejected — surface elsewhere if needed */
+        p.catch((err: unknown) => {
+          // Last-resort fallback: if the browser still refuses unmuted autoplay,
+          // start muted so the user at least sees the timeline progressing,
+          // then they can hit "Activer le son" to unmute.
+          if (!el.muted) {
+            el.muted = true
+            const retry = el.play()
+            if (retry !== undefined && typeof retry.catch === 'function') {
+              retry.catch(() => {
+                /* still rejected — user can trigger via UI */
+              })
+            }
+          }
+          // eslint-disable-next-line no-console
+          console.warn('[tagger] audio autoplay rejected', err)
         })
       }
     } catch {
@@ -54,9 +76,13 @@ export function AudioPreview({
       el.removeEventListener('timeupdate', onTime)
       el.pause()
       el.removeAttribute('src')
-      el.load()
+      try {
+        el.load()
+      } catch {
+        /* ignore */
+      }
     }
-  }, [filePath])
+  }, [filePath, muted])
 
   if (isAiff(filePath)) {
     return (
