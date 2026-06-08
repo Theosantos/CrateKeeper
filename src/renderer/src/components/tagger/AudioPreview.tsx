@@ -4,9 +4,12 @@ import { useEffect, useRef, useState } from 'react'
  * Looping audio preview, served via the cratekeeper:// custom protocol
  * registered in Plan 04-01 (folder-allowlist + AUDIO_EXTS gated).
  *
- * Plan 04-03 post-checkpoint fix: full-track scrubbing via a range slider
- * with current-time / duration readout. The 30s sub-segment loop was
- * removed — `loop` on the <audio> restarts from 0 at the natural end.
+ * Plan 04-03 post-checkpoint fix v2:
+ *   - Full-track scrubbing via a range slider; seek works because the
+ *     protocol now serves Content-Length + Range requests.
+ *   - Mute toggle replaced with a real Play/Pause control (with ▶/⏸
+ *     icons). Mute remains in the store for muteEnabled persistence but
+ *     is no longer surfaced as a button here.
  *
  * Pitfall 6: AIFF is not reliably playable by Chromium across platforms,
  * so we short-circuit at the renderer with a French fallback message.
@@ -14,7 +17,6 @@ import { useEffect, useRef, useState } from 'react'
 interface AudioPreviewProps {
   filePath: string
   muted: boolean
-  onMuteToggle: () => void
 }
 
 function isAiff(p: string): boolean {
@@ -32,17 +34,19 @@ function formatTime(seconds: number): string {
 
 export function AudioPreview({
   filePath,
-  muted,
-  onMuteToggle
+  muted
 }: AudioPreviewProps): React.JSX.Element {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  // Track whether the user is actively dragging the slider — while true,
+  // we stop syncing `currentTime` state from `timeupdate` so the thumb
+  // doesn't fight the user's input.
+  const seekingRef = useRef(false)
   const src = 'cratekeeper://audio/' + encodeURIComponent(filePath)
 
-  // Sync mute imperatively without re-running the load/play cycle. Putting
-  // `muted` in the main effect deps caused the cycle to restart on every
-  // toggle, which aborted in-flight play() promises (#audio-silent).
+  // Sync mute imperatively without re-running the load/play cycle.
   useEffect(() => {
     const el = audioRef.current
     if (el !== null) el.muted = muted
@@ -53,12 +57,15 @@ export function AudioPreview({
     if (el === null) return
     setCurrentTime(0)
     setDuration(0)
+    setIsPlaying(false)
     const onTime = (): void => {
-      setCurrentTime(el.currentTime)
+      if (!seekingRef.current) setCurrentTime(el.currentTime)
     }
     const onLoaded = (): void => {
       setDuration(Number.isFinite(el.duration) ? el.duration : 0)
     }
+    const onPlay = (): void => setIsPlaying(true)
+    const onPause = (): void => setIsPlaying(false)
     const onError = (): void => {
       const mediaErr = el.error
       // eslint-disable-next-line no-console
@@ -75,35 +82,29 @@ export function AudioPreview({
     el.addEventListener('timeupdate', onTime)
     el.addEventListener('loadedmetadata', onLoaded)
     el.addEventListener('durationchange', onLoaded)
+    el.addEventListener('play', onPlay)
+    el.addEventListener('pause', onPause)
     el.addEventListener('error', onError)
     el.addEventListener('stalled', onStalled)
 
-    // Track whether this effect's lifetime is still current. React StrictMode
-    // (and any parent re-render) tears the effect down and recreates it; we
-    // must NOT touch the element from a stale closure.
     let cancelled = false
 
-    // Force an explicit load after src changes — without this Chromium can
-    // defer loading the new media until the next user gesture.
     try {
       el.load()
     } catch {
-      /* load() may throw in jsdom; ignore */
+      /* jsdom */
     }
     try {
       const p = el.play()
       if (p !== undefined && typeof p.catch === 'function') {
         p.catch((err: unknown) => {
-          // AbortError just means the play() was interrupted by a follow-up
-          // pause() (typical of StrictMode double-mount or a fast src change).
-          // The next effect run will issue a fresh play(); do NOT mute as a
-          // fallback in this case — muting on AbortError is what made the
-          // audio appear silent.
+          // AbortError just means play() was interrupted by a follow-up pause()
+          // (StrictMode double-mount or fast src change). Next effect run retries.
           if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) {
             return
           }
-          // Real autoplay rejection (NotAllowedError etc.): fall back to muted
-          // so the timeline still progresses; the user can unmute via the UI.
+          // Real autoplay rejection: fall back to muted so timeline progresses;
+          // user can hit Play to resume audibly.
           if (!el.muted) {
             el.muted = true
             const retry = el.play()
@@ -118,19 +119,17 @@ export function AudioPreview({
         })
       }
     } catch {
-      /* play() threw synchronously (rare); ignore */
+      /* sync throw */
     }
     return () => {
       cancelled = true
       el.removeEventListener('timeupdate', onTime)
       el.removeEventListener('loadedmetadata', onLoaded)
       el.removeEventListener('durationchange', onLoaded)
+      el.removeEventListener('play', onPlay)
+      el.removeEventListener('pause', onPause)
       el.removeEventListener('error', onError)
       el.removeEventListener('stalled', onStalled)
-      // Only pause — do NOT clear src/load(). The next effect run (with the
-      // same or new filePath) will issue its own load()+play(); clearing src
-      // here just creates pointless network thrash and was contributing to
-      // the AbortError loop.
       try {
         el.pause()
       } catch {
@@ -145,9 +144,6 @@ export function AudioPreview({
         <p className="tagger-preview__message">
           Aperçu indisponible pour ce format
         </p>
-        <button type="button" onClick={onMuteToggle} aria-pressed={muted}>
-          {muted ? 'Activer le son' : 'Couper le son'}
-        </button>
       </div>
     )
   }
@@ -161,8 +157,32 @@ export function AudioPreview({
     setCurrentTime(next)
   }
 
-  // Max defaults to a small positive value when duration is still 0 so the
-  // slider thumb stays draggable; once metadata loads it switches to real dur.
+  const onSeekStart = (): void => {
+    seekingRef.current = true
+  }
+
+  const onSeekEnd = (): void => {
+    seekingRef.current = false
+  }
+
+  const onPlayPauseClick = (): void => {
+    const el = audioRef.current
+    if (el === null) return
+    if (el.paused) {
+      const p = el.play()
+      if (p !== undefined && typeof p.catch === 'function') {
+        p.catch((err: unknown) => {
+          // eslint-disable-next-line no-console
+          console.warn('[tagger] play() rejected on user click', err)
+        })
+      }
+    } else {
+      el.pause()
+    }
+  }
+
+  // Until metadata loads, give the slider a tiny non-zero max so the thumb
+  // stays draggable; once duration is known we switch to the real value.
   const sliderMax = duration > 0 ? duration : 1
 
   return (
@@ -176,6 +196,39 @@ export function AudioPreview({
         data-testid="tagger-audio"
       />
       <div className="tagger-preview__transport">
+        <button
+          type="button"
+          className="tagger-preview__playpause"
+          onClick={onPlayPauseClick}
+          aria-label={isPlaying ? 'Pause' : 'Lecture'}
+          aria-pressed={isPlaying}
+          data-testid="tagger-playpause"
+        >
+          {isPlaying ? (
+            // ⏸ pause icon
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <rect x="3" y="2" width="3.5" height="12" rx="1" fill="currentColor" />
+              <rect x="9.5" y="2" width="3.5" height="12" rx="1" fill="currentColor" />
+            </svg>
+          ) : (
+            // ▶ play icon
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M3.5 2.2v11.6a.7.7 0 0 0 1.06.6l9.6-5.8a.7.7 0 0 0 0-1.2L4.56 1.6A.7.7 0 0 0 3.5 2.2z" fill="currentColor" />
+            </svg>
+          )}
+        </button>
         <input
           type="range"
           className="tagger-preview__seek"
@@ -184,6 +237,11 @@ export function AudioPreview({
           step={0.1}
           value={Math.min(currentTime, sliderMax)}
           onChange={onSeek}
+          onPointerDown={onSeekStart}
+          onPointerUp={onSeekEnd}
+          onPointerCancel={onSeekEnd}
+          onKeyDown={onSeekStart}
+          onKeyUp={onSeekEnd}
           aria-label="Position dans la piste"
           data-testid="tagger-seek"
         />
@@ -191,9 +249,6 @@ export function AudioPreview({
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
       </div>
-      <button type="button" onClick={onMuteToggle} aria-pressed={muted}>
-        {muted ? 'Activer le son' : 'Couper le son'}
-      </button>
     </div>
   )
 }

@@ -68,7 +68,6 @@ export function TaggerCard({
   const applyPreset = useTaggerStore((s) => s.applyPreset)
   const applySplit = useTaggerStore((s) => s.applySplit)
   const setRating = useTaggerStore((s) => s.setRating)
-  const toggleMute = useTaggerStore((s) => s.toggleMute)
 
   const current: MergedCurrent = {
     ...EMPTY,
@@ -94,13 +93,7 @@ export function TaggerCard({
         {parent !== '' && <p className="tagger-card__path">{parent}</p>}
       </header>
 
-      <AudioPreview
-        filePath={file.path}
-        muted={muteEnabled}
-        onMuteToggle={() => {
-          void toggleMute()
-        }}
-      />
+      <AudioPreview filePath={file.path} muted={muteEnabled} />
 
       <section className="tagger-card__chips" aria-label="Tags existants">
         {file.hasGenre && <span className="tagger-chip">Genre détecté</span>}

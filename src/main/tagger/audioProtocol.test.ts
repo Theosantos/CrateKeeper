@@ -3,17 +3,47 @@ import type { SettingsRepo } from '../db/settingsRepo'
 
 // Mock electron BEFORE importing the module under test.
 vi.mock('electron', () => ({
-  protocol: { handle: vi.fn() },
-  net: {
-    fetch: vi.fn(async (_url: string) => new Response('ok', { status: 200 }))
-  }
+  protocol: { handle: vi.fn() }
 }))
 
-// Import after the mock is in place.
-import { protocol, net } from 'electron'
+// Mock fs so we can fabricate file size + body without touching disk.
+vi.mock('node:fs', async () => {
+  const actual = await vi.importActual<typeof import('node:fs')>('node:fs')
+  return {
+    ...actual,
+    promises: {
+      ...actual.promises,
+      stat: vi.fn(async (_p: string) => ({ size: 1000 }))
+    },
+    createReadStream: vi.fn((_p: string, opts?: { start?: number; end?: number }) => {
+      const start = opts?.start ?? 0
+      const end = opts?.end ?? 999
+      const buf = Buffer.alloc(end - start + 1, 0x41)
+      // Minimal Readable stub: emit one chunk then end.
+      const handlers: Record<string, ((arg?: unknown) => void)[]> = {}
+      const stream = {
+        on(event: string, cb: (arg?: unknown) => void) {
+          ;(handlers[event] ??= []).push(cb)
+          if (event === 'data') {
+            queueMicrotask(() => cb(buf))
+          }
+          if (event === 'end') {
+            queueMicrotask(() => cb())
+          }
+          return stream
+        },
+        destroy() {}
+      }
+      return stream as unknown as ReturnType<typeof actual.createReadStream>
+    })
+  }
+})
+
+import { protocol } from 'electron'
 import {
   AUDIO_PROTOCOL_SCHEME,
-  registerAudioProtocol
+  registerAudioProtocol,
+  parseRange
 } from './audioProtocol'
 
 type Handler = (request: Request) => Promise<Response>
@@ -32,12 +62,44 @@ function captureHandler(): Handler {
   return last[1] as Handler
 }
 
-function makeReq(url: string): Request {
-  return new Request(url)
+function makeReq(url: string, init?: RequestInit): Request {
+  return new Request(url, init)
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
+})
+
+describe('parseRange', () => {
+  it('returns null when header is null', () => {
+    expect(parseRange(null, 1000)).toBeNull()
+  })
+
+  it('parses bytes=0-499', () => {
+    expect(parseRange('bytes=0-499', 1000)).toEqual({ start: 0, end: 499 })
+  })
+
+  it('parses bytes=500- (open end clamps to size-1)', () => {
+    expect(parseRange('bytes=500-', 1000)).toEqual({ start: 500, end: 999 })
+  })
+
+  it('parses suffix bytes=-200 (last 200 bytes)', () => {
+    expect(parseRange('bytes=-200', 1000)).toEqual({ start: 800, end: 999 })
+  })
+
+  it('returns null on malformed header', () => {
+    expect(parseRange('bytes=abc-xyz', 1000)).toBeNull()
+    expect(parseRange('items=0-100', 1000)).toBeNull()
+    expect(parseRange('bytes=-', 1000)).toBeNull()
+  })
+
+  it('returns null when start >= size (unsatisfiable)', () => {
+    expect(parseRange('bytes=2000-', 1000)).toBeNull()
+  })
+
+  it('clamps end to size-1', () => {
+    expect(parseRange('bytes=0-9999', 1000)).toEqual({ start: 0, end: 999 })
+  })
 })
 
 describe('audioProtocol', () => {
@@ -76,7 +138,6 @@ describe('audioProtocol', () => {
       makeReq('cratekeeper://audio/' + encodeURIComponent('/etc/passwd'))
     )
     expect(res.status).toBe(403)
-    expect(net.fetch).not.toHaveBeenCalled()
   })
 
   it('returns 403 for path equal to rootFolder (directory, not file)', async () => {
@@ -104,7 +165,6 @@ describe('audioProtocol', () => {
       makeReq('cratekeeper://audio/' + encodeURIComponent('/Music/note.txt'))
     )
     expect(res.status).toBe(415)
-    expect(net.fetch).not.toHaveBeenCalled()
   })
 
   it('accepts uppercase audio extension (case-insensitive)', async () => {
@@ -114,17 +174,33 @@ describe('audioProtocol', () => {
       makeReq('cratekeeper://audio/' + encodeURIComponent('/Music/Track.MP3'))
     )
     expect(res.status).not.toBe(415)
-    expect(net.fetch).toHaveBeenCalled()
+    expect(res.status).toBe(200)
   })
 
-  it('streams via net.fetch with file:// URL when path + ext valid', async () => {
+  it('returns 200 with explicit Content-Length when no Range header is present', async () => {
     registerAudioProtocol(makeSettings('/Music'))
     const handler = captureHandler()
     const res = await handler(
       makeReq('cratekeeper://audio/' + encodeURIComponent('/Music/song.mp3'))
     )
     expect(res.status).toBe(200)
-    expect(net.fetch).toHaveBeenCalledWith('file:///Music/song.mp3')
+    expect(res.headers.get('Content-Length')).toBe('1000')
+    expect(res.headers.get('Accept-Ranges')).toBe('bytes')
+  })
+
+  it('returns 206 Partial Content with Content-Range when Range is present', async () => {
+    registerAudioProtocol(makeSettings('/Music'))
+    const handler = captureHandler()
+    const res = await handler(
+      makeReq(
+        'cratekeeper://audio/' + encodeURIComponent('/Music/song.mp3'),
+        { headers: { Range: 'bytes=100-499' } }
+      )
+    )
+    expect(res.status).toBe(206)
+    expect(res.headers.get('Content-Range')).toBe('bytes 100-499/1000')
+    expect(res.headers.get('Content-Length')).toBe('400')
+    expect(res.headers.get('Accept-Ranges')).toBe('bytes')
   })
 
   it('sets Content-Type by extension so <audio> can decode the stream', async () => {
@@ -145,21 +221,12 @@ describe('audioProtocol', () => {
     }
   })
 
-  it('advertises Accept-Ranges: bytes for seek support', async () => {
-    registerAudioProtocol(makeSettings('/Music'))
-    const handler = captureHandler()
-    const res = await handler(
-      makeReq('cratekeeper://audio/' + encodeURIComponent('/Music/song.mp3'))
-    )
-    expect(res.headers.get('Accept-Ranges')).toBe('bytes')
-  })
-
   it('decodes URL pathname (handles spaces)', async () => {
     registerAudioProtocol(makeSettings('/Music'))
     const handler = captureHandler()
-    await handler(
+    const res = await handler(
       makeReq('cratekeeper://audio/' + encodeURIComponent('/Music/My Song.mp3'))
     )
-    expect(net.fetch).toHaveBeenCalledWith('file:///Music/My Song.mp3')
+    expect(res.status).toBe(200)
   })
 })
