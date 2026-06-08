@@ -6,36 +6,15 @@ vi.mock('electron', () => ({
   protocol: { handle: vi.fn() }
 }))
 
-// Mock fs so we can fabricate file size + body without touching disk.
+// Mock fs.readFile so we can fabricate a 1000-byte body without touching disk.
 vi.mock('node:fs', async () => {
   const actual = await vi.importActual<typeof import('node:fs')>('node:fs')
   return {
     ...actual,
     promises: {
       ...actual.promises,
-      stat: vi.fn(async (_p: string) => ({ size: 1000 }))
-    },
-    createReadStream: vi.fn((_p: string, opts?: { start?: number; end?: number }) => {
-      const start = opts?.start ?? 0
-      const end = opts?.end ?? 999
-      const buf = Buffer.alloc(end - start + 1, 0x41)
-      // Minimal Readable stub: emit one chunk then end.
-      const handlers: Record<string, ((arg?: unknown) => void)[]> = {}
-      const stream = {
-        on(event: string, cb: (arg?: unknown) => void) {
-          ;(handlers[event] ??= []).push(cb)
-          if (event === 'data') {
-            queueMicrotask(() => cb(buf))
-          }
-          if (event === 'end') {
-            queueMicrotask(() => cb())
-          }
-          return stream
-        },
-        destroy() {}
-      }
-      return stream as unknown as ReturnType<typeof actual.createReadStream>
-    })
+      readFile: vi.fn(async (_p: string) => Buffer.alloc(1000, 0x41))
+    }
   }
 })
 

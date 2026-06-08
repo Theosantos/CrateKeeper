@@ -1,6 +1,6 @@
 import { protocol } from 'electron'
 import path from 'node:path'
-import { promises as fs, createReadStream } from 'node:fs'
+import { promises as fs } from 'node:fs'
 import type { SettingsRepo } from '../db/settingsRepo'
 import { AUDIO_EXTS } from '../workers/scanCore'
 
@@ -38,27 +38,15 @@ export function parseRange(
 }
 
 /**
- * Stream a Node fs ReadStream as a Web ReadableStream so it can be the
- * body of a Response. Errors propagate to the controller; close cleans up.
+ * Return a freshly-allocated Uint8Array slice with its own ArrayBuffer.
+ * fs.readFile returns a Buffer backed by Node's pool; we copy to avoid
+ * any cross-pool aliasing when the Response body is consumed downstream.
  */
-function fileRangeStream(abs: string, start: number, end: number): ReadableStream<Uint8Array> {
-  const nodeStream = createReadStream(abs, { start, end })
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      nodeStream.on('data', (chunk: string | Buffer) => {
-        const buf =
-          typeof chunk === 'string'
-            ? new TextEncoder().encode(chunk)
-            : new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength)
-        controller.enqueue(buf)
-      })
-      nodeStream.on('end', () => controller.close())
-      nodeStream.on('error', (err) => controller.error(err))
-    },
-    cancel() {
-      nodeStream.destroy()
-    }
-  })
+function toFreshUint8(buf: Buffer, start: number, end: number): Uint8Array {
+  const length = end - start + 1
+  const out = new Uint8Array(length)
+  buf.copy(out, 0, start, end + 1)
+  return out
 }
 
 /**
@@ -129,28 +117,29 @@ export function registerAudioProtocol(settingsRepo: SettingsRepo): void {
     }
 
     // Serve the file ourselves with explicit Content-Length + Range support.
-    // net.fetch('file://...') does not surface a usable Content-Length and
-    // does not honour Range requests, which broke <audio> seek (seeking
-    // snapped back to 0 because the buffered range stayed at 0).
+    // We read the whole file into memory and slice on Range — simple,
+    // correct, and fine for the preview track sizes we deal with (5–20 MB).
+    // The streaming approach via createReadStream / ReadableStream was
+    // dropping bytes / producing silence, so we stay with the buffered path.
     const mime = AUDIO_MIME[ext] ?? 'application/octet-stream'
-    let size: number
+    let data: Buffer
     try {
-      const stat = await fs.stat(abs)
-      size = stat.size
+      data = await fs.readFile(abs)
     } catch {
       return new Response('Not Found', { status: 404 })
     }
+    const size = data.length
 
     const range = parseRange(request.headers.get('Range'), size)
     if (range !== null) {
       const { start, end } = range
-      const length = end - start + 1
-      return new Response(fileRangeStream(abs, start, end), {
+      const slice = toFreshUint8(data, start, end)
+      return new Response(slice, {
         status: 206,
         statusText: 'Partial Content',
         headers: {
           'Content-Type': mime,
-          'Content-Length': String(length),
+          'Content-Length': String(slice.byteLength),
           'Content-Range': `bytes ${start}-${end}/${size}`,
           'Accept-Ranges': 'bytes',
           'Cache-Control': 'no-store'
@@ -158,11 +147,12 @@ export function registerAudioProtocol(settingsRepo: SettingsRepo): void {
       })
     }
 
-    return new Response(fileRangeStream(abs, 0, Math.max(0, size - 1)), {
+    const full = toFreshUint8(data, 0, size - 1)
+    return new Response(full, {
       status: 200,
       headers: {
         'Content-Type': mime,
-        'Content-Length': String(size),
+        'Content-Length': String(full.byteLength),
         'Accept-Ranges': 'bytes',
         'Cache-Control': 'no-store'
       }
