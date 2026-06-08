@@ -124,14 +124,13 @@ export const useTaggerStore = create<TaggerState>((set, get) => ({
   },
 
   async loadMuteSetting(): Promise<void> {
-    // settings:get returns the raw value (string|null in the bridge contract).
-    // We treat string 'true' as true; absence (null) → default false.
-    const raw = (await window.crateKeeper.getSetting(
-      'tagger.muteEnabled'
-    )) as unknown
-    const enabled =
-      raw === true || raw === 'true' || (typeof raw === 'string' && raw === '1')
-    set({ muteEnabled: enabled })
+    // The mute toggle was removed from the UI in favour of a Play/Pause
+    // control, but the persisted `tagger.muteEnabled=true` from older
+    // sessions would otherwise keep the audio silenced with no way to
+    // unmute. Force the in-memory flag to false on load so the audio
+    // always starts unmuted. We do not write back — the legacy setting
+    // simply becomes a no-op.
+    set({ muteEnabled: false })
   },
 
   setDirtyEdit(field, value): void {

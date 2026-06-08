@@ -63,7 +63,6 @@ export function TaggerCard({
   const dirty = useTaggerStore((s) => s.dirtyEdits.get(file.path))
   const pending = useTaggerStore((s) => s.pendingEdits.get(file.path))
   const genrePresets = useTaggerStore((s) => s.genrePresets)
-  const muteEnabled = useTaggerStore((s) => s.muteEnabled)
   const setDirtyEdit = useTaggerStore((s) => s.setDirtyEdit)
   const applyPreset = useTaggerStore((s) => s.applyPreset)
   const applySplit = useTaggerStore((s) => s.applySplit)
@@ -93,7 +92,7 @@ export function TaggerCard({
         {parent !== '' && <p className="tagger-card__path">{parent}</p>}
       </header>
 
-      <AudioPreview filePath={file.path} muted={muteEnabled} />
+      <AudioPreview filePath={file.path} />
 
       <section className="tagger-card__chips" aria-label="Tags existants">
         {file.hasGenre && <span className="tagger-chip">Genre détecté</span>}

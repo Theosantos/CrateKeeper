@@ -16,7 +16,6 @@ import { useEffect, useRef, useState } from 'react'
  */
 interface AudioPreviewProps {
   filePath: string
-  muted: boolean
 }
 
 function isAiff(p: string): boolean {
@@ -33,8 +32,7 @@ function formatTime(seconds: number): string {
 }
 
 export function AudioPreview({
-  filePath,
-  muted
+  filePath
 }: AudioPreviewProps): React.JSX.Element {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [currentTime, setCurrentTime] = useState(0)
@@ -45,12 +43,6 @@ export function AudioPreview({
   // doesn't fight the user's input.
   const seekingRef = useRef(false)
   const src = 'cratekeeper://audio/' + encodeURIComponent(filePath)
-
-  // Sync mute imperatively without re-running the load/play cycle.
-  useEffect(() => {
-    const el = audioRef.current
-    if (el !== null) el.muted = muted
-  }, [muted])
 
   useEffect(() => {
     const el = audioRef.current
@@ -103,19 +95,11 @@ export function AudioPreview({
           if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) {
             return
           }
-          // Real autoplay rejection: fall back to muted so timeline progresses;
-          // user can hit Play to resume audibly.
-          if (!el.muted) {
-            el.muted = true
-            const retry = el.play()
-            if (retry !== undefined && typeof retry.catch === 'function') {
-              retry.catch(() => {
-                /* still rejected — user can trigger via UI */
-              })
-            }
-          }
+          // Real autoplay rejection (NotAllowedError etc.) — surface it so the
+          // user can hit the Play button. We deliberately do NOT silently mute
+          // and retry: there is no mute UI, so muting would strand the user.
           // eslint-disable-next-line no-console
-          console.warn('[tagger] audio autoplay rejected', err)
+          console.warn('[tagger] audio autoplay rejected — click Play to start', err)
         })
       }
     } catch {
@@ -191,7 +175,6 @@ export function AudioPreview({
         ref={audioRef}
         src={src}
         loop
-        muted={muted}
         preload="auto"
         data-testid="tagger-audio"
       />

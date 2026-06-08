@@ -4,7 +4,7 @@ import { AudioPreview } from './AudioPreview'
 
 describe('AudioPreview', () => {
   it('renders <audio> with cratekeeper:// src (URI-encoded path)', () => {
-    render(<AudioPreview filePath="/Users/test/A track.mp3" muted={false} />)
+    render(<AudioPreview filePath="/Users/test/A track.mp3" />)
     const audio = screen.getByTestId('tagger-audio') as HTMLAudioElement
     expect(audio.getAttribute('src')).toBe(
       'cratekeeper://audio/' + encodeURIComponent('/Users/test/A track.mp3')
@@ -14,14 +14,14 @@ describe('AudioPreview', () => {
     expect(audio.muted).toBe(false)
   })
 
-  it('honours muted prop', () => {
-    render(<AudioPreview filePath="/m/a.mp3" muted={true} />)
+  it('audio element starts unmuted (mute control was removed)', () => {
+    render(<AudioPreview filePath="/m/a.mp3" />)
     const audio = screen.getByTestId('tagger-audio') as HTMLAudioElement
-    expect(audio.muted).toBe(true)
+    expect(audio.muted).toBe(false)
   })
 
   it('renders fallback for .aiff (no <audio> element)', () => {
-    render(<AudioPreview filePath="/m/track.aiff" muted={false} />)
+    render(<AudioPreview filePath="/m/track.aiff" />)
     expect(
       screen.getByText('Aperçu indisponible pour ce format')
     ).toBeInTheDocument()
@@ -29,7 +29,7 @@ describe('AudioPreview', () => {
   })
 
   it('renders fallback for .aif (case-insensitive)', () => {
-    render(<AudioPreview filePath="/m/track.AIF" muted={false} />)
+    render(<AudioPreview filePath="/m/track.AIF" />)
     expect(
       screen.getByText('Aperçu indisponible pour ce format')
     ).toBeInTheDocument()
@@ -37,7 +37,7 @@ describe('AudioPreview', () => {
   })
 
   it('renders seek slider with time display', () => {
-    render(<AudioPreview filePath="/m/a.mp3" muted />)
+    render(<AudioPreview filePath="/m/a.mp3" />)
     const seek = screen.getByTestId('tagger-seek') as HTMLInputElement
     expect(seek.type).toBe('range')
     expect(seek.getAttribute('aria-label')).toBe('Position dans la piste')
@@ -45,7 +45,7 @@ describe('AudioPreview', () => {
   })
 
   it('seek slider onChange sets audio currentTime', () => {
-    render(<AudioPreview filePath="/m/a.mp3" muted />)
+    render(<AudioPreview filePath="/m/a.mp3" />)
     const audio = screen.getByTestId('tagger-audio') as HTMLAudioElement
     Object.defineProperty(audio, 'currentTime', { writable: true, value: 0 })
     Object.defineProperty(audio, 'duration', {
@@ -61,7 +61,7 @@ describe('AudioPreview', () => {
   })
 
   it('does NOT reset currentTime at 30s (full-track scrubbing)', () => {
-    render(<AudioPreview filePath="/m/a.mp3" muted />)
+    render(<AudioPreview filePath="/m/a.mp3" />)
     const audio = screen.getByTestId('tagger-audio') as HTMLAudioElement
     Object.defineProperty(audio, 'currentTime', { writable: true, value: 45 })
     audio.dispatchEvent(new Event('timeupdate'))
@@ -69,7 +69,7 @@ describe('AudioPreview', () => {
   })
 
   it('renders a play/pause button (Lecture label when paused)', () => {
-    render(<AudioPreview filePath="/m/a.mp3" muted />)
+    render(<AudioPreview filePath="/m/a.mp3" />)
     const btn = screen.getByTestId('tagger-playpause')
     // jsdom doesn't auto-play, so element starts paused → label is "Lecture".
     expect(btn.getAttribute('aria-label')).toBe('Lecture')
@@ -77,7 +77,7 @@ describe('AudioPreview', () => {
   })
 
   it('play/pause button flips label and aria-pressed when audio plays', () => {
-    render(<AudioPreview filePath="/m/a.mp3" muted />)
+    render(<AudioPreview filePath="/m/a.mp3" />)
     const audio = screen.getByTestId('tagger-audio') as HTMLAudioElement
     act(() => {
       audio.dispatchEvent(new Event('play'))
@@ -95,9 +95,9 @@ describe('AudioPreview', () => {
 
   it('changing filePath does not throw (cleanup runs cleanly)', () => {
     const { rerender, unmount } = render(
-      <AudioPreview filePath="/m/a.mp3" muted />
+      <AudioPreview filePath="/m/a.mp3" />
     )
-    rerender(<AudioPreview filePath="/m/b.mp3" muted />)
+    rerender(<AudioPreview filePath="/m/b.mp3" />)
     const audio = screen.getByTestId('tagger-audio')
     expect(audio).toBeInTheDocument()
     unmount()

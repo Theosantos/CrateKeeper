@@ -170,14 +170,17 @@ describe('useTaggerStore', () => {
     expect(s.genrePresetsSource).toBe('library')
   })
 
-  it('loadMuteSetting reads from settings:get and defaults to false on null', async () => {
-    installMock({ muteSetting: null })
+  it('loadMuteSetting always resets muteEnabled to false (legacy setting ignored)', async () => {
+    // The mute UI was removed; a persisted `tagger.muteEnabled=true` from
+    // older sessions used to leave audio silenced with no way to unmute.
+    // loadMuteSetting now ignores the persisted value and forces false.
+    installMock({ muteSetting: 'true' })
     await useTaggerStore.getState().loadMuteSetting()
     expect(useTaggerStore.getState().muteEnabled).toBe(false)
 
-    installMock({ muteSetting: 'true' })
+    installMock({ muteSetting: null })
     await useTaggerStore.getState().loadMuteSetting()
-    expect(useTaggerStore.getState().muteEnabled).toBe(true)
+    expect(useTaggerStore.getState().muteEnabled).toBe(false)
   })
 
   it('setDirtyEdit produces a NEW Map instance (immutability)', async () => {

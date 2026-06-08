@@ -119,13 +119,12 @@ describe('TaggerView', () => {
     useTaggerStore.getState().reset()
   })
 
-  it('on mount calls loadQueue + loadGenrePresets + loadMuteSetting', async () => {
+  it('on mount calls loadQueue + loadGenrePresets', async () => {
     const m = installMock([])
     render(<TaggerView />)
     await waitFor(() => {
       expect(m.loadQueue).toHaveBeenCalledTimes(1)
       expect(m.getGenrePresets).toHaveBeenCalledTimes(1)
-      expect(m.getSetting).toHaveBeenCalledWith('tagger.muteEnabled')
     })
   })
 
