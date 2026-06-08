@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { AudioPreview } from './AudioPreview'
 
@@ -60,22 +60,50 @@ describe('AudioPreview', () => {
     expect(screen.queryByTestId('tagger-audio')).toBeNull()
   })
 
-  it('timeupdate handler resets currentTime to 0 when >= 30', () => {
+  it('renders seek slider with time display', () => {
     render(
-      <AudioPreview
-        filePath="/m/a.mp3"
-        muted={true}
-        onMuteToggle={() => {}}
-      />
+      <AudioPreview filePath="/m/a.mp3" muted onMuteToggle={() => {}} />
+    )
+    const seek = screen.getByTestId('tagger-seek') as HTMLInputElement
+    expect(seek.type).toBe('range')
+    expect(seek.getAttribute('aria-label')).toBe('Position dans la piste')
+    // Default time readout before metadata loads.
+    expect(screen.getByText('0:00 / 0:00')).toBeInTheDocument()
+  })
+
+  it('seek slider onChange sets audio currentTime', () => {
+    render(
+      <AudioPreview filePath="/m/a.mp3" muted onMuteToggle={() => {}} />
     )
     const audio = screen.getByTestId('tagger-audio') as HTMLAudioElement
-    // jsdom: currentTime is settable; loop logic should clamp back.
     Object.defineProperty(audio, 'currentTime', {
       writable: true,
-      value: 30
+      value: 0
+    })
+    // Simulate duration becoming available so the slider's max permits scrubbing.
+    Object.defineProperty(audio, 'duration', {
+      configurable: true,
+      get: () => 180
+    })
+    act(() => {
+      audio.dispatchEvent(new Event('loadedmetadata'))
+    })
+    const seek = screen.getByTestId('tagger-seek') as HTMLInputElement
+    fireEvent.change(seek, { target: { value: '42.5' } })
+    expect(audio.currentTime).toBe(42.5)
+  })
+
+  it('does NOT reset currentTime at 30s (full-track scrubbing)', () => {
+    render(
+      <AudioPreview filePath="/m/a.mp3" muted onMuteToggle={() => {}} />
+    )
+    const audio = screen.getByTestId('tagger-audio') as HTMLAudioElement
+    Object.defineProperty(audio, 'currentTime', {
+      writable: true,
+      value: 45
     })
     audio.dispatchEvent(new Event('timeupdate'))
-    expect(audio.currentTime).toBe(0)
+    expect(audio.currentTime).toBe(45)
   })
 
   it('mute toggle button shows French copy + calls onMuteToggle', () => {

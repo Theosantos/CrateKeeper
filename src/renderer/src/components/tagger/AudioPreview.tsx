@@ -1,11 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /**
- * 30-second looping audio preview, served via the cratekeeper:// custom
- * protocol registered in Plan 04-01 (folder-allowlist + AUDIO_EXTS gated).
+ * Looping audio preview, served via the cratekeeper:// custom protocol
+ * registered in Plan 04-01 (folder-allowlist + AUDIO_EXTS gated).
  *
- * Pitfall 3: HTML <audio> cannot natively loop a sub-segment. We listen to
- * `timeupdate` and reset currentTime to 0 when it crosses 30s.
+ * Plan 04-03 post-checkpoint fix: full-track scrubbing via a range slider
+ * with current-time / duration readout. The 30s sub-segment loop was
+ * removed — `loop` on the <audio> restarts from 0 at the natural end.
  *
  * Pitfall 6: AIFF is not reliably playable by Chromium across platforms,
  * so we short-circuit at the renderer with a French fallback message.
@@ -21,41 +22,53 @@ function isAiff(p: string): boolean {
   return lower.endsWith('.aiff') || lower.endsWith('.aif')
 }
 
+function formatTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
+  const total = Math.floor(seconds)
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
 export function AudioPreview({
   filePath,
   muted,
   onMuteToggle
 }: AudioPreviewProps): React.JSX.Element {
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
   const src = 'cratekeeper://audio/' + encodeURIComponent(filePath)
 
   useEffect(() => {
     const el = audioRef.current
     if (el === null) return
+    el.muted = muted
+    setCurrentTime(0)
+    setDuration(0)
+    const onTime = (): void => {
+      setCurrentTime(el.currentTime)
+    }
+    const onLoaded = (): void => {
+      setDuration(Number.isFinite(el.duration) ? el.duration : 0)
+    }
+    el.addEventListener('timeupdate', onTime)
+    el.addEventListener('loadedmetadata', onLoaded)
+    el.addEventListener('durationchange', onLoaded)
     // Force an explicit load after src changes — without this Chromium sometimes
     // defers loading the new media until the next user gesture, which makes
     // play() resolve against the previous resource (silent).
-    el.muted = muted
-    const onTime = (): void => {
-      if (el.currentTime >= 30) {
-        el.currentTime = 0
-      }
-    }
-    el.addEventListener('timeupdate', onTime)
     try {
       el.load()
     } catch {
       /* load() may throw in jsdom; ignore */
     }
-    // Autoplay policy is unlocked at the main bootstrap (Plan 04-01).
-    // jsdom's HTMLMediaElement.play() returns undefined; guard accordingly.
     try {
       const p = el.play()
       if (p !== undefined && typeof p.catch === 'function') {
         p.catch((err: unknown) => {
           // Last-resort fallback: if the browser still refuses unmuted autoplay,
-          // start muted so the user at least sees the timeline progressing,
-          // then they can hit "Activer le son" to unmute.
+          // start muted so the timeline still progresses; user can then unmute.
           if (!el.muted) {
             el.muted = true
             const retry = el.play()
@@ -70,10 +83,12 @@ export function AudioPreview({
         })
       }
     } catch {
-      /* play() threw synchronously (rare); ignore — user can trigger via UI */
+      /* play() threw synchronously (rare); ignore */
     }
     return () => {
       el.removeEventListener('timeupdate', onTime)
+      el.removeEventListener('loadedmetadata', onLoaded)
+      el.removeEventListener('durationchange', onLoaded)
       el.pause()
       el.removeAttribute('src')
       try {
@@ -97,6 +112,19 @@ export function AudioPreview({
     )
   }
 
+  const onSeek = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const el = audioRef.current
+    if (el === null) return
+    const next = Number(e.target.value)
+    if (!Number.isFinite(next)) return
+    el.currentTime = next
+    setCurrentTime(next)
+  }
+
+  // Max defaults to a small positive value when duration is still 0 so the
+  // slider thumb stays draggable; once metadata loads it switches to real dur.
+  const sliderMax = duration > 0 ? duration : 1
+
   return (
     <div className="tagger-preview">
       <audio
@@ -107,6 +135,22 @@ export function AudioPreview({
         preload="auto"
         data-testid="tagger-audio"
       />
+      <div className="tagger-preview__transport">
+        <input
+          type="range"
+          className="tagger-preview__seek"
+          min={0}
+          max={sliderMax}
+          step={0.1}
+          value={Math.min(currentTime, sliderMax)}
+          onChange={onSeek}
+          aria-label="Position dans la piste"
+          data-testid="tagger-seek"
+        />
+        <span className="tagger-preview__time" aria-live="off">
+          {formatTime(currentTime)} / {formatTime(duration)}
+        </span>
+      </div>
       <button type="button" onClick={onMuteToggle} aria-pressed={muted}>
         {muted ? 'Activer le son' : 'Couper le son'}
       </button>
