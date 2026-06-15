@@ -90,7 +90,10 @@
   1. After a Keep action, the user can inspect the audio file with an external tool (e.g. Mp3tag) and see the updated tags written to the file
   2. If the app crashes or loses power during a write, the original audio file is intact and uncorrupted
   3. Tags written for MP3 files use ID3v2.3 with UTF-16 encoding, integer BPM, and Camelot-notation Key — importing into Rekordbox shows the values correctly
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 05-01-PLAN.md — tagWriter (atomic MP3 node-id3 + MP4 ffmpeg, non-destructive, round-trip) + taggerRepo listPendingWrites/markApplied (TAGS-01/02/03)
+- [ ] 05-02-PLAN.md — applyController (per-file-retryable batch) + secured tagger:apply-writes/pending-count IPC + bridge + main wiring (TAGS-01/02/03)
+- [ ] 05-03-PLAN.md — Appliquer (N) renderer surface: useTaggerStore.applyWrites + ApplyBanner + per-file feedback + Mp3tag/Rekordbox/crash manual checks (TAGS-01/02/03)
 
 ### Phase 6: Distribution
 **Goal:** Non-developer DJs on macOS and Windows can install the app from a single installer file with no manual dependency setup.
@@ -110,6 +113,6 @@
 | 1. Foundation | 2/2 | Complete | 2026-05-29 |
 | 2. File Scanning & Library View | 3/3 | Complete   | 2026-05-29 |
 | 3. FFmpeg Conversion Pipeline | 3/3 | Complete   | 2026-06-03 |
-| 4. Tagger Core | 2/3 | In Progress|  |
-| 5. Tag Writing & Rekordbox Compatibility | 0/? | Not started | - |
+| 4. Tagger Core | 3/3 | Complete | 2026-06-15 |
+| 5. Tag Writing & Rekordbox Compatibility | 0/3 | Planned | - |
 | 6. Distribution | 0/? | Not started | - |
