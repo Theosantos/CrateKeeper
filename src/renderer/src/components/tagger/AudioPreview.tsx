@@ -44,6 +44,43 @@ function cssVar(name: string, fallback: string): string {
   return v === '' ? fallback : v
 }
 
+/**
+ * A single shared AudioContext for waveform decoding across the whole app.
+ *
+ * Creating a fresh AudioContext per track exhausts Chromium's hard cap (~6
+ * concurrent contexts) after a handful of card changes — the constructor then
+ * throws and crashes the React tree. decodeAudioData does not require a running
+ * context, so one lazily-created, never-closed context is correct and safe.
+ * Returns null if Web Audio is unavailable (e.g. jsdom) — callers no-op.
+ */
+let sharedAudioContext: AudioContext | null = null
+let audioContextUnavailable = false
+
+function getSharedAudioContext(): AudioContext | null {
+  if (sharedAudioContext !== null) return sharedAudioContext
+  if (audioContextUnavailable) return null
+  const Ctx: typeof AudioContext | undefined =
+    typeof window !== 'undefined'
+      ? window.AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext
+      : undefined
+  if (Ctx === undefined) {
+    audioContextUnavailable = true
+    return null
+  }
+  try {
+    sharedAudioContext = new Ctx()
+    return sharedAudioContext
+  } catch (err) {
+    // Never let context creation crash the render.
+    // eslint-disable-next-line no-console
+    console.error('[tagger] could not create AudioContext', err)
+    audioContextUnavailable = true
+    return null
+  }
+}
+
 /** Downsample mono PCM to `bars` normalized (0..1) max-abs peaks. */
 function computePeaks(channel: Float32Array, bars: number): number[] {
   if (bars <= 0 || channel.length === 0) return []
@@ -144,17 +181,11 @@ export function AudioPreview({ filePath }: AudioPreviewProps): React.JSX.Element
 
   // ── Waveform decode (best-effort, never blocks playback) ──────────────────
   useEffect(() => {
-    if (aiff) return
-    const Ctx: typeof AudioContext | undefined =
-      typeof window !== 'undefined'
-        ? window.AudioContext ??
-          (window as unknown as { webkitAudioContext?: typeof AudioContext })
-            .webkitAudioContext
-        : undefined
-    if (Ctx === undefined || typeof fetch === 'undefined') return
+    if (aiff || typeof fetch === 'undefined') return
+    const ac = getSharedAudioContext()
+    if (ac === null) return
 
     let cancelled = false
-    const ac = new Ctx()
     channelRef.current = null
     peaksRef.current = []
 
@@ -170,15 +201,13 @@ export function AudioPreview({ filePath }: AudioPreviewProps): React.JSX.Element
         redrawWaveform()
       })
       .catch((err: unknown) => {
+        if (cancelled) return
         // eslint-disable-next-line no-console
         console.error('[tagger] waveform decode failed (playback unaffected)', err)
       })
 
     return () => {
       cancelled = true
-      ac.close().catch(() => {
-        /* ignore */
-      })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src, aiff])
