@@ -100,10 +100,16 @@
   cursor: default;
 }
 
+.tagger-preview audio {
+  display: none;
+}
+
 .tagger-preview__waveform {
   flex: 1 1 auto;
   min-width: 0;
+  width: 100%;
   cursor: pointer;
+  display: block;
 }
 
 .tagger-preview__time {

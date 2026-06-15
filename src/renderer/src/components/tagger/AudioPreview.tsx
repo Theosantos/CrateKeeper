@@ -1,24 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
-import WaveSurfer from 'wavesurfer.js'
 
 /**
  * SoundCloud-style waveform preview, served via the cratekeeper:// custom
  * protocol registered in Plan 04-01 (folder-allowlist + AUDIO_EXTS gated).
  *
- * Plan 04-03 post-checkpoint fix v3:
- *   - The custom <audio>+slider was replaced with wavesurfer.js. The amplitude
- *     waveform makes breaks (quiet → short bars) and drops (loud → tall bars)
- *     immediately visible, and click/drag on the waveform seeks. wavesurfer
- *     fetches the file once to draw peaks and plays through its own media
- *     element (our protocol's Range support keeps playback seek smooth).
- *   - Autoplay on ready; loop by replaying on finish.
+ * Plan 04-03 post-checkpoint fix v4 — robust, dependency-free:
+ *   - Playback runs on a plain <audio> element (the proven-working path).
+ *     The Play button enables on `canplay` and autoplays; it is NEVER gated
+ *     on the waveform being ready, so sound works even if peak decoding fails.
+ *   - The waveform is drawn on a <canvas> from peaks we decode ourselves via
+ *     Web Audio (fetch the bytes → decodeAudioData → max-abs per bar). Drops
+ *     render as tall bars, breaks as short bars. Click the canvas to seek.
+ *   - The two concerns are fully decoupled: a waveform-decode failure logs and
+ *     leaves the canvas blank but does not break playback.
  *
- * Pitfall 6: AIFF is not reliably decodable by Chromium across platforms, so
- * we short-circuit at the renderer with a French fallback message.
+ * Pitfall 6: AIFF is not reliably decodable by Chromium, so we short-circuit
+ * with a French fallback.
  */
 interface AudioPreviewProps {
   filePath: string
 }
+
+const BAR_WIDTH = 2
+const BAR_GAP = 1
+const WAVE_HEIGHT = 72
 
 function isAiff(p: string): boolean {
   const lower = p.toLowerCase()
@@ -33,97 +38,212 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-/**
- * Resolve a CSS custom property to its computed value so wavesurfer's canvas
- * fills use the same design tokens as the rest of the UI.
- */
 function cssVar(name: string, fallback: string): string {
   if (typeof window === 'undefined') return fallback
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   return v === '' ? fallback : v
 }
 
+/** Downsample mono PCM to `bars` normalized (0..1) max-abs peaks. */
+function computePeaks(channel: Float32Array, bars: number): number[] {
+  if (bars <= 0 || channel.length === 0) return []
+  const block = Math.max(1, Math.floor(channel.length / bars))
+  const peaks = new Array<number>(bars)
+  let max = 0
+  for (let i = 0; i < bars; i++) {
+    const start = i * block
+    const end = Math.min(start + block, channel.length)
+    let peak = 0
+    for (let j = start; j < end; j++) {
+      const v = Math.abs(channel[j])
+      if (v > peak) peak = v
+    }
+    peaks[i] = peak
+    if (peak > max) max = peak
+  }
+  if (max > 0) {
+    for (let i = 0; i < bars; i++) peaks[i] /= max
+  }
+  return peaks
+}
+
 export function AudioPreview({ filePath }: AudioPreviewProps): React.JSX.Element {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const wsRef = useRef<WaveSurfer | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const channelRef = useRef<Float32Array | null>(null)
+  const peaksRef = useRef<number[]>([])
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [isReady, setIsReady] = useState(false)
+  const [canPlay, setCanPlay] = useState(false)
   const src = 'cratekeeper://audio/' + encodeURIComponent(filePath)
   const aiff = isAiff(filePath)
 
+  // ── Playback (proven <audio> path — independent of the waveform) ──────────
   useEffect(() => {
-    if (aiff) return
-    const container = containerRef.current
-    if (container === null) return
+    const el = audioRef.current
+    if (el === null || aiff) return
+    setCurrentTime(0)
+    setDuration(0)
+    setIsPlaying(false)
+    setCanPlay(false)
 
-    const ws = WaveSurfer.create({
-      container,
-      url: src,
-      height: 72,
-      // SoundCloud-style bars; normalize so a quiet track still shows its full
-      // dynamic range (relative break/drop contrast stays legible).
-      barWidth: 2,
-      barGap: 1,
-      barRadius: 2,
-      normalize: true,
-      cursorWidth: 1,
-      waveColor: cssVar('--color-text-muted', '#888'),
-      progressColor: cssVar('--color-accent', '#e8a23d'),
-      cursorColor: cssVar('--color-accent-strong', '#f0b050')
-    })
-    wsRef.current = ws
-
-    const onDecode = (d: number): void => setDuration(d)
-    const onTime = (t: number): void => setCurrentTime(t)
-    const onPlay = (): void => setIsPlaying(true)
-    const onPause = (): void => setIsPlaying(false)
-    const onReady = (): void => {
-      setIsReady(true)
-      // Autoplay (BrowserWindow sets autoplayPolicy:'no-user-gesture-required').
-      const p = ws.play()
-      if (p !== undefined && typeof (p as Promise<void>).catch === 'function') {
-        ;(p as Promise<void>).catch((err: unknown) => {
+    const onTime = (): void => setCurrentTime(el.currentTime)
+    const onLoaded = (): void =>
+      setDuration(Number.isFinite(el.duration) ? el.duration : 0)
+    const onCanPlay = (): void => {
+      setCanPlay(true)
+      const p = el.play()
+      if (p !== undefined && typeof p.catch === 'function') {
+        p.catch((err: unknown) => {
           // eslint-disable-next-line no-console
-          console.warn('[tagger] waveform autoplay rejected — click Play', err)
+          console.warn('[tagger] autoplay rejected — click Play', err)
         })
       }
     }
-    // Manual loop: replay from the start when the track finishes.
-    const onFinish = (): void => {
-      ws.play().catch(() => {
-        /* ignore */
+    const onPlay = (): void => setIsPlaying(true)
+    const onPause = (): void => setIsPlaying(false)
+    const onError = (): void => {
+      // eslint-disable-next-line no-console
+      console.error('[tagger] audio element error', {
+        src: el.currentSrc || el.src,
+        code: el.error?.code,
+        message: el.error?.message
       })
     }
-    const onError = (err: unknown): void => {
-      // eslint-disable-next-line no-console
-      console.error('[tagger] wavesurfer error', { src, err })
+
+    el.addEventListener('timeupdate', onTime)
+    el.addEventListener('loadedmetadata', onLoaded)
+    el.addEventListener('durationchange', onLoaded)
+    el.addEventListener('canplay', onCanPlay)
+    el.addEventListener('play', onPlay)
+    el.addEventListener('pause', onPause)
+    el.addEventListener('error', onError)
+
+    try {
+      el.load()
+    } catch {
+      /* jsdom */
     }
 
-    ws.on('decode', onDecode)
-    ws.on('timeupdate', onTime)
-    ws.on('play', onPlay)
-    ws.on('pause', onPause)
-    ws.on('ready', onReady)
-    ws.on('finish', onFinish)
-    ws.on('error', onError)
-
     return () => {
-      // destroy() removes listeners, aborts the in-flight fetch, and tears
-      // down the audio element + Web Audio graph.
-      wsRef.current = null
-      setIsReady(false)
-      setIsPlaying(false)
-      setCurrentTime(0)
-      setDuration(0)
+      el.removeEventListener('timeupdate', onTime)
+      el.removeEventListener('loadedmetadata', onLoaded)
+      el.removeEventListener('durationchange', onLoaded)
+      el.removeEventListener('canplay', onCanPlay)
+      el.removeEventListener('play', onPlay)
+      el.removeEventListener('pause', onPause)
+      el.removeEventListener('error', onError)
       try {
-        ws.destroy()
+        el.pause()
       } catch {
-        /* destroy can throw if fetch was aborted mid-decode; ignore */
+        /* ignore */
       }
     }
   }, [src, aiff])
+
+  // ── Waveform decode (best-effort, never blocks playback) ──────────────────
+  useEffect(() => {
+    if (aiff) return
+    const Ctx: typeof AudioContext | undefined =
+      typeof window !== 'undefined'
+        ? window.AudioContext ??
+          (window as unknown as { webkitAudioContext?: typeof AudioContext })
+            .webkitAudioContext
+        : undefined
+    if (Ctx === undefined || typeof fetch === 'undefined') return
+
+    let cancelled = false
+    const ac = new Ctx()
+    channelRef.current = null
+    peaksRef.current = []
+
+    fetch(src)
+      .then((r) => {
+        if (!r.ok) throw new Error(`fetch ${r.status}`)
+        return r.arrayBuffer()
+      })
+      .then((buf) => ac.decodeAudioData(buf))
+      .then((audioBuf) => {
+        if (cancelled) return
+        channelRef.current = audioBuf.getChannelData(0)
+        redrawWaveform()
+      })
+      .catch((err: unknown) => {
+        // eslint-disable-next-line no-console
+        console.error('[tagger] waveform decode failed (playback unaffected)', err)
+      })
+
+    return () => {
+      cancelled = true
+      ac.close().catch(() => {
+        /* ignore */
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, aiff])
+
+  // Recompute peaks for the current canvas width, then paint.
+  function redrawWaveform(): void {
+    const canvas = canvasRef.current
+    const channel = channelRef.current
+    if (canvas === null) return
+    const cssW = canvas.clientWidth
+    if (channel !== null && cssW > 0) {
+      const bars = Math.max(1, Math.floor(cssW / (BAR_WIDTH + BAR_GAP)))
+      if (peaksRef.current.length !== bars) {
+        peaksRef.current = computePeaks(channel, bars)
+      }
+    }
+    paint()
+  }
+
+  // Paint the bars + progress overlay onto the canvas.
+  function paint(): void {
+    const canvas = canvasRef.current
+    if (canvas === null) return
+    const ctx = canvas.getContext('2d')
+    if (ctx === null) return
+    const dpr = window.devicePixelRatio || 1
+    const cssW = canvas.clientWidth
+    const cssH = WAVE_HEIGHT
+    if (cssW === 0) return
+    if (canvas.width !== cssW * dpr || canvas.height !== cssH * dpr) {
+      canvas.width = cssW * dpr
+      canvas.height = cssH * dpr
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, cssW, cssH)
+    const peaks = peaksRef.current
+    if (peaks.length === 0) return
+    const waveColor = cssVar('--color-text-muted', '#888')
+    const progColor = cssVar('--color-accent', '#e8a23d')
+    const progress = duration > 0 ? currentTime / duration : 0
+    const mid = cssH / 2
+    const step = BAR_WIDTH + BAR_GAP
+    for (let i = 0; i < peaks.length; i++) {
+      const x = i * step
+      const h = Math.max(1, peaks[i] * cssH)
+      ctx.fillStyle = x / cssW <= progress ? progColor : waveColor
+      ctx.fillRect(x, mid - h / 2, BAR_WIDTH, h)
+    }
+  }
+
+  // Repaint the progress overlay as playback advances.
+  useEffect(() => {
+    paint()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTime, duration])
+
+  // Recompute bars on container resize.
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (canvas === null || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => redrawWaveform())
+    ro.observe(canvas)
+    return () => ro.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (aiff) {
     return (
@@ -134,18 +254,36 @@ export function AudioPreview({ filePath }: AudioPreviewProps): React.JSX.Element
   }
 
   const onPlayPauseClick = (): void => {
-    const ws = wsRef.current
-    if (ws === null) return
-    ws.playPause()
+    const el = audioRef.current
+    if (el === null) return
+    if (el.paused) {
+      el.play().catch((err: unknown) => {
+        // eslint-disable-next-line no-console
+        console.warn('[tagger] play() rejected', err)
+      })
+    } else {
+      el.pause()
+    }
+  }
+
+  const onWaveformClick = (e: React.MouseEvent<HTMLCanvasElement>): void => {
+    const el = audioRef.current
+    const canvas = canvasRef.current
+    if (el === null || canvas === null || duration <= 0) return
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width === 0) return
+    const frac = (e.clientX - rect.left) / rect.width
+    el.currentTime = Math.max(0, Math.min(duration, frac * duration))
   }
 
   return (
     <div className="tagger-preview">
+      <audio ref={audioRef} src={src} loop preload="auto" data-testid="tagger-audio" />
       <button
         type="button"
         className="tagger-preview__playpause"
         onClick={onPlayPauseClick}
-        disabled={!isReady}
+        disabled={!canPlay}
         aria-label={isPlaying ? 'Pause' : 'Lecture'}
         aria-pressed={isPlaying}
         data-testid="tagger-playpause"
@@ -164,11 +302,13 @@ export function AudioPreview({ filePath }: AudioPreviewProps): React.JSX.Element
           </svg>
         )}
       </button>
-      <div
-        ref={containerRef}
+      <canvas
+        ref={canvasRef}
         className="tagger-preview__waveform"
-        data-testid="tagger-waveform"
+        style={{ height: WAVE_HEIGHT }}
+        onClick={onWaveformClick}
         aria-label="Forme d'onde — cliquer pour naviguer"
+        data-testid="tagger-waveform"
       />
       <span className="tagger-preview__time" aria-live="off">
         {formatTime(currentTime)} / {formatTime(duration)}
