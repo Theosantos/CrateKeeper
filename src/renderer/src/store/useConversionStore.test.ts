@@ -70,7 +70,8 @@ function installMock(conversionId = 'conv-1'): MockedConversionApi {
       resume,
       discard,
       onEvent
-    } as unknown as CrateKeeperApi['conversion']
+    } as unknown as CrateKeeperApi['conversion'],
+    tagger: {} as unknown as CrateKeeperApi['tagger']
   }
 
   return {

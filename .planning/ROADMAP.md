@@ -9,7 +9,7 @@
 - [x] **Phase 1: Foundation** - App shell, IPC bridge, folder picker, SQLite persistence
 - [x] **Phase 2: File Scanning & Library View** - Chunked audio scan, metadata display, tag status indicators, CSV export (completed 2026-05-29)
 - [x] **Phase 3: FFmpeg Conversion Pipeline** - Batch conversion, progress tracking, resume, tag preservation (completed 2026-06-03)
-- [ ] **Phase 4: Tagger Core** - Swipe-style tagging queue, audio previews, inline editing, session resume
+- [x] **Phase 4: Tagger Core** - Swipe-style tagging queue, audio previews, inline editing, session resume (completed 2026-06-15)
 - [ ] **Phase 5: Tag Writing & Rekordbox Compatibility** - Atomic ID3v2.3/MP4 writes, Rekordbox-compatible fields
 - [ ] **Phase 6: Distribution** - Signed .dmg and .exe installers with bundled FFmpeg
 
@@ -74,8 +74,12 @@
   6. When Artist is empty and the Title contains " - ", the app offers a one-click Artiste/Titre split suggestion
   7. User presses Undo and the previous Keep/Skip action is reversed
   8. User closes the app mid-session, reopens it, and the tagger resumes at the same file in the queue
-**Plans**: TBD
+**Plans**: 3 plans (completed 2026-06-15 — see 04-VERIFICATION.md)
+- [x] 04-01-PLAN.md — Main backbone: tagger IPC namespace, taggerRepo (pending_tag_edits + tagger_session), scanRepo incomplete-files query, cratekeeper:// audio protocol, genre presets (TAGG-01/02/04/05/06/07/10)
+- [x] 04-02-PLAN.md — Renderer card UX: useTaggerStore, TaggerCard (preview, RatingStars, GenrePresetBar, ArtistTitleSplit), useTaggerKeyboard, slide animation (TAGG-02/03/04/05/06/07/08)
+- [x] 04-03-PLAN.md — Undo + session resume + E2E; post-checkpoint UX loop: main-process ffmpeg waveform, play/pause, BPM/Key removed per user, crash hardening (TAGG-09/10)
 **UI hint**: yes
+**Deviations:** BPM/Key editing removed (user decision); 30s window → full-track waveform. See 04-VERIFICATION.md.
 
 ### Phase 5: Tag Writing & Rekordbox Compatibility
 **Goal:** Tags edited in the Tagger are durably written to audio files in a format that Rekordbox reads correctly, with no risk of file corruption.
@@ -106,6 +110,6 @@
 | 1. Foundation | 2/2 | Complete | 2026-05-29 |
 | 2. File Scanning & Library View | 3/3 | Complete   | 2026-05-29 |
 | 3. FFmpeg Conversion Pipeline | 3/3 | Complete   | 2026-06-03 |
-| 4. Tagger Core | 0/? | Not started | - |
+| 4. Tagger Core | 2/3 | In Progress|  |
 | 5. Tag Writing & Rekordbox Compatibility | 0/? | Not started | - |
 | 6. Distribution | 0/? | Not started | - |

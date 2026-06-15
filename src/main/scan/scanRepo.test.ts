@@ -165,6 +165,75 @@ describe('scanRepo', () => {
     })
   })
 
+  describe('findLatestScan (Phase 4 — Tagger queue source)', () => {
+    it('returns the most recent done scan for the folder', () => {
+      repo.createScan('s1', '/Music', 100)
+      repo.complete('s1', { status: 'done', totalFiles: 1, endedAt: 200 })
+      repo.createScan('s2', '/Music', 300)
+      repo.complete('s2', { status: 'done', totalFiles: 1, endedAt: 400 })
+      const r = repo.findLatestScan('/Music')
+      expect(r?.id).toBe('s2')
+    })
+
+    it('excludes running status (returns older done instead)', () => {
+      repo.createScan('older', '/Music', 100)
+      repo.complete('older', { status: 'done', totalFiles: 1, endedAt: 200 })
+      repo.createScan('runner', '/Music', 500)
+      // still running — not completed
+      const r = repo.findLatestScan('/Music')
+      expect(r?.id).toBe('older')
+    })
+
+    it('excludes cancelled and error statuses', () => {
+      repo.createScan('c', '/Music', 100)
+      repo.complete('c', { status: 'cancelled', endedAt: 200 })
+      repo.createScan('e', '/Music', 300)
+      repo.complete('e', { status: 'error', endedAt: 400 })
+      const r = repo.findLatestScan('/Music')
+      expect(r).toBeNull()
+    })
+
+    it('returns null when no scans exist for the folder', () => {
+      expect(repo.findLatestScan('/Music')).toBeNull()
+    })
+
+    it('returns null when only non-done scans exist', () => {
+      repo.createScan('r', '/Music', 100)
+      // still running
+      expect(repo.findLatestScan('/Music')).toBeNull()
+    })
+  })
+
+  describe('listIncompleteFiles (Phase 4 — Tagger queue source)', () => {
+    it('returns rows missing at least one of has_genre/has_bpm/has_key, path ASC', () => {
+      repo.createScan('s1', '/M', 1)
+      repo.insertBatch(
+        [
+          row({ path: '/M/c.mp3', hasGenre: false, hasBpm: true, hasKey: true }),
+          row({ path: '/M/a.mp3', hasGenre: true, hasBpm: false, hasKey: true }),
+          row({ path: '/M/b.mp3', hasGenre: true, hasBpm: true, hasKey: false }),
+          row({ path: '/M/full.mp3', hasGenre: true, hasBpm: true, hasKey: true })
+        ],
+        's1'
+      )
+      const files = repo.listIncompleteFiles('s1')
+      expect(files.map((f) => f.path)).toEqual(['/M/a.mp3', '/M/b.mp3', '/M/c.mp3'])
+    })
+
+    it('excludes files where all three flags are 1 (fully tagged)', () => {
+      repo.createScan('s1', '/M', 1)
+      repo.insertBatch(
+        [row({ path: '/M/full.mp3', hasGenre: true, hasBpm: true, hasKey: true })],
+        's1'
+      )
+      expect(repo.listIncompleteFiles('s1')).toEqual([])
+    })
+
+    it('returns empty for a scanId with no matches', () => {
+      expect(repo.listIncompleteFiles('nope')).toEqual([])
+    })
+  })
+
   describe('SQL safety (V5 defence-in-depth)', () => {
     it('uses prepared statements exclusively (no interpolated SQL)', () => {
       // No template literal SQL with embedded ${} value substitutions.

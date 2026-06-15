@@ -27,6 +27,18 @@ export interface ScanRepo {
   listFiles(scanId: string): ScannedFile[]
   iterateFiles(scanId: string): IterableIterator<ScannedFile>
   deleteScansForFolder(rootFolder: string): void
+  /**
+   * Phase 4 Plan 01 — Tagger queue source.
+   * Returns the most recent scan for the folder WHERE status='done'.
+   * Excludes 'running' / 'cancelled' / 'error' status (LOCKED in 04-CONTEXT).
+   */
+  findLatestScan(rootFolder: string): ScanRow | null
+  /**
+   * Phase 4 Plan 01 — Tagger queue source.
+   * Returns scanned_files rows WHERE has_genre=0 OR has_bpm=0 OR has_key=0,
+   * ordered by path ASC.
+   */
+  listIncompleteFiles(scanId: string): ScannedFile[]
 }
 
 /**
@@ -56,10 +68,19 @@ export function initScanSchema(db: Database.Database): void {
       'has_key INTEGER NOT NULL,' +
       'parsed_ok INTEGER NOT NULL,' +
       'error_message TEXT,' +
+      'genre TEXT,' +
       'PRIMARY KEY (scan_id, path)' +
       ');' +
       'CREATE INDEX IF NOT EXISTS idx_scanned_files_scan ON scanned_files(scan_id);'
   )
+  // Phase 4 Plan 01 — additive migration for existing DBs created under Phase 2
+  // schema (genre column added so taggerRepo.topGenres can GROUP BY it).
+  // Try/catch on the ALTER because better-sqlite3 throws if the column exists.
+  try {
+    db.exec('ALTER TABLE scanned_files ADD COLUMN genre TEXT')
+  } catch {
+    // column already exists — fine
+  }
   // Enforce ON DELETE CASCADE (off by default in SQLite per connection).
   db.pragma('foreign_keys = ON')
 }
@@ -140,6 +161,21 @@ export function createScanRepo(db: Database.Database): ScanRepo {
       ' FROM scanned_files WHERE scan_id = ? ORDER BY path ASC'
   )
 
+  // Phase 4 Plan 01 — most recent successfully-completed scan for a folder.
+  // status='done' filter excludes running/cancelled/error rows (LOCKED).
+  const findLatestScanStmt = db.prepare(
+    "SELECT * FROM scans WHERE root_folder = ? AND status = 'done' " +
+      'ORDER BY started_at DESC LIMIT 1'
+  )
+
+  // Phase 4 Plan 01 — files missing at least one of genre/bpm/key.
+  const listIncompleteFilesStmt = db.prepare(
+    'SELECT path, format, bitrate, size_bytes, sample_rate, duration_seconds,' +
+      ' has_genre, has_bpm, has_key, parsed_ok, error_message' +
+      ' FROM scanned_files WHERE scan_id = ? AND' +
+      ' (has_genre = 0 OR has_bpm = 0 OR has_key = 0) ORDER BY path ASC'
+  )
+
   const insertBatch = db.transaction((rows: ScannedFile[], scanId: string) => {
     for (const r of rows) {
       insertFileStmt.run({
@@ -207,6 +243,16 @@ export function createScanRepo(db: Database.Database): ScanRepo {
 
     deleteScansForFolder(rootFolder) {
       deleteScansForFolderStmt.run(rootFolder)
+    },
+
+    findLatestScan(rootFolder) {
+      const r = findLatestScanStmt.get(rootFolder) as ScanRowDb | undefined
+      return r ? toScanRow(r) : null
+    },
+
+    listIncompleteFiles(scanId) {
+      const rows = listIncompleteFilesStmt.all(scanId) as FileRowDb[]
+      return rows.map(toScannedFile)
     }
   }
 }

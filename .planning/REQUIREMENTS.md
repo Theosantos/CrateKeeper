@@ -31,13 +31,13 @@
 ### Tagger
 
 - [ ] **TAGG-01**: L'utilisateur peut charger un dossier dans le tagger — seuls les fichiers avec tags incomplets apparaissent dans la file
-- [ ] **TAGG-02**: Chaque carte affiche le nom du fichier, les tags existants, et joue automatiquement un extrait audio de 30s au chargement
-- [ ] **TAGG-03**: L'utilisateur peut passer au fichier suivant (Skip) ou valider et sauvegarder les tags (Keep) via boutons ou raccourcis clavier (→ / ←)
-- [ ] **TAGG-04**: Des boutons de genre rapides configurables (ex: House, Techno, Afro, Melodic...) sont disponibles, activables en 1 clic ou touches 1-9
-- [ ] **TAGG-05**: BPM et Clé musicale sont saisissables inline sur la carte sans ouvrir de modal
-- [ ] **TAGG-06**: Genre, Artiste, Titre, Commentaire sont éditables inline sur la carte
-- [ ] **TAGG-07**: Énergie / Rating (1-5) est saisissable et écrit dans POPM (compatible Rekordbox stars)
-- [ ] **TAGG-08**: Si le champ Artiste est vide et que le Titre contient un séparateur reconnu (` - `, ` -- `, ` – `), l'app propose deux options de split Artiste/Titre avec validation en 1 clic
+- [x] **TAGG-02**: Chaque carte affiche le nom du fichier, les tags existants, et joue automatiquement un extrait audio de 30s au chargement
+- [x] **TAGG-03**: L'utilisateur peut passer au fichier suivant (Skip) ou valider et sauvegarder les tags (Keep) via boutons ou raccourcis clavier (→ / ←)
+- [x] **TAGG-04**: Des boutons de genre rapides configurables (ex: House, Techno, Afro, Melodic...) sont disponibles, activables en 1 clic ou touches 1-9
+- [x] **TAGG-05**: BPM et Clé musicale sont saisissables inline sur la carte sans ouvrir de modal
+- [x] **TAGG-06**: Genre, Artiste, Titre, Commentaire sont éditables inline sur la carte
+- [x] **TAGG-07**: Énergie / Rating (1-5) est saisissable et écrit dans POPM (compatible Rekordbox stars)
+- [x] **TAGG-08**: Si le champ Artiste est vide et que le Titre contient un séparateur reconnu (` - `, ` -- `, ` – `), l'app propose deux options de split Artiste/Titre avec validation en 1 clic
 - [ ] **TAGG-09**: L'utilisateur peut annuler la dernière action Keep/Skip (undo 1 niveau)
 - [ ] **TAGG-10**: La position dans la file est sauvegardée — l'app reprend au même fichier lors de la prochaine ouverture
 
@@ -102,13 +102,13 @@
 | CONV-05 | Phase 3 | Pending |
 | CONV-06 | Phase 3 | Pending |
 | TAGG-01 | Phase 4 | Pending |
-| TAGG-02 | Phase 4 | Pending |
-| TAGG-03 | Phase 4 | Pending |
-| TAGG-04 | Phase 4 | Pending |
-| TAGG-05 | Phase 4 | Pending |
-| TAGG-06 | Phase 4 | Pending |
-| TAGG-07 | Phase 4 | Pending |
-| TAGG-08 | Phase 4 | Pending |
+| TAGG-02 | Phase 4 | Complete |
+| TAGG-03 | Phase 4 | Complete |
+| TAGG-04 | Phase 4 | Complete |
+| TAGG-05 | Phase 4 | Complete |
+| TAGG-06 | Phase 4 | Complete |
+| TAGG-07 | Phase 4 | Complete |
+| TAGG-08 | Phase 4 | Complete |
 | TAGG-09 | Phase 4 | Pending |
 | TAGG-10 | Phase 4 | Pending |
 | TAGS-01 | Phase 5 | Pending |
