@@ -621,19 +621,21 @@ const args = [
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Re-edit predicate** (flagged in Claude's Discretion)
+> All three resolved during Phase 5 planning — see 05-01/05-02/05-03-PLAN.md.
+
+1. **Re-edit predicate** (flagged in Claude's Discretion) — **RESOLVED:** Option B adopted (`applied_at IS NULL OR updated_at > applied_at`), implemented in 05-01 Task 3 `listPendingWrites`.
    - What we know: `applied_at IS NULL` misses re-edits of already-written files.
    - What's unclear: Does the user expect re-edits to be included in the next Appliquer, or is the simpler form acceptable?
    - Recommendation: Use `applied_at IS NULL OR updated_at > applied_at` (Option B). Flag for human confirm at checkpoint.
 
-2. **Rekordbox POPM byte scale validation**
+2. **Rekordbox POPM byte scale validation** — **RESOLVED:** manual checkpoint added in 05-03 Task 3 (`<human-check>` — import POPM=204 file into Rekordbox, confirm 4 stars).
    - What we know: The locked mapping (1→51, 2→102, 3→153, 4→204, 5→255) matches the Winamp/Mp3tag convention.
    - What's unclear: Rekordbox 6.x specifically — does it use the same scale?
    - Recommendation: Add a manual checkpoint in the plan: "Import a test file with POPM=204 into Rekordbox and confirm it shows as 4 stars before shipping."
 
-3. **`NodeID3.update()` called on temp copy — read source behavior**
+3. **`NodeID3.update()` called on temp copy — read source behavior** — **RESOLVED:** confirmed via unit test required in 05-01 Task 2 (update on temp path preserves old frames).
    - What we know: `update()` calls `read(filebuffer)` first.
    - What's unclear: When `filebuffer` is a file path string, does it read from that path (the temp copy) or resolve to the original somehow?
    - Recommendation: Confirm via unit test: write a temp file with known tags, call `NodeID3.update({ title: 'new' }, tmpPath)`, verify old tags are preserved.

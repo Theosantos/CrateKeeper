@@ -35,9 +35,11 @@ Phase 4 editor opened.
   an automatic background queue. The Tagger keeps accumulating into
   `pending_tag_edits` exactly as today; a dedicated surface shows "N tags en
   attente" with an **Appliquer** action that writes all pending edits.
-- **D-02:** Rationale: keeps the Phase 4 Undo model clean — the file is only
-  touched at the final commit, so undo still operates purely on the DB intent
-  store (no need to revert a file write). Mirrors the conversion mental model.
+- **D-02 [informational]:** Rationale for D-01 (not an independently buildable
+  decision): keeps the Phase 4 Undo model clean — the file is only touched at
+  the final commit, so undo still operates purely on the DB intent store (no
+  need to revert a file write). Mirrors the conversion mental model. Realized
+  structurally by D-01's explicit-Appliquer design (writes only on Apply).
 - **D-03:** Surface placement is Claude's discretion (see below), but the
   default expectation is an "Appliquer (N)" affordance reachable from the
   Tagger flow, with the count driven by `pending_tag_edits WHERE applied_at IS NULL`.
