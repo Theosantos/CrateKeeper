@@ -4,18 +4,18 @@ import { useEffect, useRef, useState } from 'react'
  * SoundCloud-style waveform preview, served via the cratekeeper:// custom
  * protocol registered in Plan 04-01 (folder-allowlist + AUDIO_EXTS gated).
  *
- * Plan 04-03 post-checkpoint fix v4 — robust, dependency-free:
- *   - Playback runs on a plain <audio> element (the proven-working path).
- *     The Play button enables on `canplay` and autoplays; it is NEVER gated
- *     on the waveform being ready, so sound works even if peak decoding fails.
- *   - The waveform is drawn on a <canvas> from peaks we decode ourselves via
- *     Web Audio (fetch the bytes → decodeAudioData → max-abs per bar). Drops
- *     render as tall bars, breaks as short bars. Click the canvas to seek.
- *   - The two concerns are fully decoupled: a waveform-decode failure logs and
- *     leaves the canvas blank but does not break playback.
+ * Plan 04-03 post-checkpoint fix v5 — no renderer-side audio decoding:
+ *   - Playback runs on a plain <audio> element (the proven-stable path).
+ *   - The waveform peaks are decoded in the MAIN process via ffmpeg and
+ *     delivered over IPC (tagger:get-waveform). The renderer only draws a few
+ *     hundred floats on a <canvas>. This removes Web Audio decodeAudioData
+ *     from the renderer, which was crashing the renderer process natively
+ *     under repeated track changes (white screen, no JS error to catch).
+ *   - The two concerns are fully decoupled: a waveform failure leaves the
+ *     canvas blank but never affects playback.
  *
- * Pitfall 6: AIFF is not reliably decodable by Chromium, so we short-circuit
- * with a French fallback.
+ * Pitfall 6: AIFF is not reliably decodable, so we short-circuit with a French
+ * fallback.
  */
 interface AudioPreviewProps {
   filePath: string
@@ -44,70 +44,9 @@ function cssVar(name: string, fallback: string): string {
   return v === '' ? fallback : v
 }
 
-/**
- * A single shared AudioContext for waveform decoding across the whole app.
- *
- * Creating a fresh AudioContext per track exhausts Chromium's hard cap (~6
- * concurrent contexts) after a handful of card changes — the constructor then
- * throws and crashes the React tree. decodeAudioData does not require a running
- * context, so one lazily-created, never-closed context is correct and safe.
- * Returns null if Web Audio is unavailable (e.g. jsdom) — callers no-op.
- */
-let sharedAudioContext: AudioContext | null = null
-let audioContextUnavailable = false
-
-function getSharedAudioContext(): AudioContext | null {
-  if (sharedAudioContext !== null) return sharedAudioContext
-  if (audioContextUnavailable) return null
-  const Ctx: typeof AudioContext | undefined =
-    typeof window !== 'undefined'
-      ? window.AudioContext ??
-        (window as unknown as { webkitAudioContext?: typeof AudioContext })
-          .webkitAudioContext
-      : undefined
-  if (Ctx === undefined) {
-    audioContextUnavailable = true
-    return null
-  }
-  try {
-    sharedAudioContext = new Ctx()
-    return sharedAudioContext
-  } catch (err) {
-    // Never let context creation crash the render.
-    // eslint-disable-next-line no-console
-    console.error('[tagger] could not create AudioContext', err)
-    audioContextUnavailable = true
-    return null
-  }
-}
-
-/** Downsample mono PCM to `bars` normalized (0..1) max-abs peaks. */
-function computePeaks(channel: Float32Array, bars: number): number[] {
-  if (bars <= 0 || channel.length === 0) return []
-  const block = Math.max(1, Math.floor(channel.length / bars))
-  const peaks = new Array<number>(bars)
-  let max = 0
-  for (let i = 0; i < bars; i++) {
-    const start = i * block
-    const end = Math.min(start + block, channel.length)
-    let peak = 0
-    for (let j = start; j < end; j++) {
-      const v = Math.abs(channel[j])
-      if (v > peak) peak = v
-    }
-    peaks[i] = peak
-    if (peak > max) max = peak
-  }
-  if (max > 0) {
-    for (let i = 0; i < bars; i++) peaks[i] /= max
-  }
-  return peaks
-}
-
 export function AudioPreview({ filePath }: AudioPreviewProps): React.JSX.Element {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const channelRef = useRef<Float32Array | null>(null)
   const peaksRef = useRef<number[]>([])
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -179,53 +118,39 @@ export function AudioPreview({ filePath }: AudioPreviewProps): React.JSX.Element
     }
   }, [src, aiff])
 
-  // ── Waveform decode (best-effort, never blocks playback) ──────────────────
+  // ── Waveform peaks via main-process ffmpeg (best-effort) ──────────────────
   useEffect(() => {
-    if (aiff || typeof fetch === 'undefined') return
-    const ac = getSharedAudioContext()
-    if (ac === null) return
-
+    if (aiff) return
     let cancelled = false
-    channelRef.current = null
     peaksRef.current = []
+    paint()
 
-    fetch(src)
-      .then((r) => {
-        if (!r.ok) throw new Error(`fetch ${r.status}`)
-        return r.arrayBuffer()
-      })
-      .then((buf) => ac.decodeAudioData(buf))
-      .then((audioBuf) => {
+    const canvas = canvasRef.current
+    const cssW = canvas?.clientWidth ?? 600
+    const bars = Math.max(1, Math.floor(cssW / (BAR_WIDTH + BAR_GAP)))
+
+    void window.crateKeeper.tagger
+      .getWaveform(filePath, bars)
+      .then((res) => {
         if (cancelled) return
-        channelRef.current = audioBuf.getChannelData(0)
-        redrawWaveform()
+        peaksRef.current = res.peaks
+        // ffmpeg's duration is a good fallback before loadedmetadata fires.
+        if (res.durationSec !== null && res.durationSec > 0) {
+          setDuration((d) => (d > 0 ? d : (res.durationSec as number)))
+        }
+        paint()
       })
       .catch((err: unknown) => {
         if (cancelled) return
         // eslint-disable-next-line no-console
-        console.error('[tagger] waveform decode failed (playback unaffected)', err)
+        console.error('[tagger] waveform fetch failed (playback unaffected)', err)
       })
 
     return () => {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, aiff])
-
-  // Recompute peaks for the current canvas width, then paint.
-  function redrawWaveform(): void {
-    const canvas = canvasRef.current
-    const channel = channelRef.current
-    if (canvas === null) return
-    const cssW = canvas.clientWidth
-    if (channel !== null && cssW > 0) {
-      const bars = Math.max(1, Math.floor(cssW / (BAR_WIDTH + BAR_GAP)))
-      if (peaksRef.current.length !== bars) {
-        peaksRef.current = computePeaks(channel, bars)
-      }
-    }
-    paint()
-  }
+  }, [filePath, aiff])
 
   // Paint the bars + progress overlay onto the canvas.
   function paint(): void {
@@ -249,7 +174,9 @@ export function AudioPreview({ filePath }: AudioPreviewProps): React.JSX.Element
     const progColor = cssVar('--color-accent', '#e8a23d')
     const progress = duration > 0 ? currentTime / duration : 0
     const mid = cssH / 2
-    const step = BAR_WIDTH + BAR_GAP
+    // Map the available peaks across the full canvas width so the waveform
+    // always spans the control regardless of how many bars ffmpeg returned.
+    const step = cssW / peaks.length
     for (let i = 0; i < peaks.length; i++) {
       const x = i * step
       const h = Math.max(1, peaks[i] * cssH)
@@ -264,11 +191,11 @@ export function AudioPreview({ filePath }: AudioPreviewProps): React.JSX.Element
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTime, duration])
 
-  // Recompute bars on container resize.
+  // Repaint on container resize.
   useEffect(() => {
     const canvas = canvasRef.current
     if (canvas === null || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(() => redrawWaveform())
+    const ro = new ResizeObserver(() => paint())
     ro.observe(canvas)
     return () => ro.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps

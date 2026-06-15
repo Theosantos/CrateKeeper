@@ -80,6 +80,9 @@ function installMock(
   })
   const getSetting = vi.fn().mockResolvedValue(null)
   const setSetting = vi.fn().mockResolvedValue(undefined)
+  const getWaveform = vi
+    .fn()
+    .mockResolvedValue({ peaks: [], durationSec: null })
   globalThis.window.crateKeeper = {
     pickFolder: vi.fn().mockResolvedValue(null),
     getRootFolder: vi.fn().mockResolvedValue(null),
@@ -99,7 +102,8 @@ function installMock(
       deleteEdit,
       getSession,
       setSession,
-      getGenrePresets
+      getGenrePresets,
+      getWaveform
     } as unknown as CrateKeeperApi['tagger']
   }
   return {

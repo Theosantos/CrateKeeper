@@ -44,7 +44,8 @@ export const IpcChannels = {
   TaggerDeleteEdit: 'tagger:delete-edit',
   TaggerGetSession: 'tagger:get-session',
   TaggerSetSession: 'tagger:set-session',
-  TaggerGetGenrePresets: 'tagger:get-genre-presets'
+  TaggerGetGenrePresets: 'tagger:get-genre-presets',
+  TaggerGetWaveform: 'tagger:get-waveform'
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -223,6 +224,17 @@ export interface GenrePresetsResult {
   presets: string[]
 }
 
+/**
+ * Payload returned by `tagger:get-waveform`. `peaks` are normalized 0..1
+ * amplitude bars decoded in the main process via ffmpeg — the renderer never
+ * decodes audio (that caused native renderer crashes). `durationSec` is the
+ * track length in seconds, or null when ffmpeg could not determine it.
+ */
+export interface WaveformResult {
+  peaks: number[]
+  durationSec: number | null
+}
+
 /** Payload accepted by `tagger:save-edit`. Undefined fields are coerced to null. */
 export interface SaveTagEditInput {
   filePath: string
@@ -245,6 +257,8 @@ export interface CrateKeeperTaggerApi {
     scanId: string | null
   }): Promise<void>
   getGenrePresets(): Promise<GenrePresetsResult>
+  /** Decode a normalized waveform for `filePath` in the main process. */
+  getWaveform(filePath: string, bars: number): Promise<WaveformResult>
 }
 
 export interface CrateKeeperApi {

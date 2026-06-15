@@ -182,7 +182,9 @@ app.whenReady().then(() => {
     ipcMain,
     taggerRepo: getTaggerRepo(),
     scanRepo: getScanRepo(),
-    settingsRepo: getSettingsRepo()
+    settingsRepo: getSettingsRepo(),
+    resolveFfmpegPath: () =>
+      resolveFfmpegPath({ rawPath: ffmpegStatic, isPackaged: app.isPackaged })
   })
 
   mainWindow = createWindow()

@@ -43,7 +43,10 @@ function installMockBridge(): void {
       deleteEdit: vi.fn(),
       getSession: vi.fn(),
       setSession: vi.fn(),
-      getGenrePresets: vi.fn()
+      getGenrePresets: vi.fn(),
+      getWaveform: vi
+        .fn()
+        .mockResolvedValue({ peaks: [], durationSec: null })
     } as unknown as CrateKeeperApi['tagger']
   }
 }

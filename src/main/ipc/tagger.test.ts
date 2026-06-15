@@ -87,18 +87,50 @@ describe('registerTaggerHandlers', () => {
       taggerRepo,
       scanRepo,
       settingsRepo,
+      resolveFfmpegPath: () => '/fake/ffmpeg',
       now: () => NOW
     })
   })
 
-  it('registers all 6 channels', () => {
-    expect(ipcMain.handle).toHaveBeenCalledTimes(6)
+  it('registers all 7 channels', () => {
+    expect(ipcMain.handle).toHaveBeenCalledTimes(7)
     expect(handlers.has(IpcChannels.TaggerLoadQueue)).toBe(true)
     expect(handlers.has(IpcChannels.TaggerSaveEdit)).toBe(true)
     expect(handlers.has(IpcChannels.TaggerDeleteEdit)).toBe(true)
     expect(handlers.has(IpcChannels.TaggerGetSession)).toBe(true)
     expect(handlers.has(IpcChannels.TaggerSetSession)).toBe(true)
     expect(handlers.has(IpcChannels.TaggerGetGenrePresets)).toBe(true)
+    expect(handlers.has(IpcChannels.TaggerGetWaveform)).toBe(true)
+  })
+
+  describe('tagger:get-waveform', () => {
+    it('returns empty when no rootFolder', async () => {
+      settingsRepo.get = vi.fn(() => null)
+      const r = await handlers.get(IpcChannels.TaggerGetWaveform)!(
+        {},
+        '/Music/a.mp3',
+        100
+      )
+      expect(r).toEqual({ peaks: [], durationSec: null })
+    })
+
+    it('returns empty for a path outside rootFolder (no ffmpeg spawn)', async () => {
+      const r = await handlers.get(IpcChannels.TaggerGetWaveform)!(
+        {},
+        '/etc/passwd',
+        100
+      )
+      expect(r).toEqual({ peaks: [], durationSec: null })
+    })
+
+    it('returns empty for a non-audio extension', async () => {
+      const r = await handlers.get(IpcChannels.TaggerGetWaveform)!(
+        {},
+        '/Music/note.txt',
+        100
+      )
+      expect(r).toEqual({ peaks: [], durationSec: null })
+    })
   })
 
   describe('tagger:load-queue', () => {

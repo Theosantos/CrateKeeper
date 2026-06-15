@@ -6,7 +6,8 @@ import {
   type PendingTagEdit,
   type SaveTagEditInput,
   type TaggerQueueResult,
-  type TaggerSession
+  type TaggerSession,
+  type WaveformResult
 } from '../../shared/ipc-types'
 import type { TaggerRepo } from '../tagger/taggerRepo'
 import type { ScanRepo } from '../scan/scanRepo'
@@ -16,6 +17,10 @@ import {
   mergeGenrePresets
 } from '../tagger/queueBuilder'
 import { AUDIO_EXTS } from '../workers/scanCore'
+import { extractWaveform } from '../tagger/waveform'
+
+// Bound the number of bars the renderer can request (defence-in-depth).
+const MAX_WAVEFORM_BARS = 4000
 
 const ROOT_FOLDER_KEY = 'rootFolder'
 
@@ -160,6 +165,8 @@ export interface RegisterTaggerHandlersOpts {
   taggerRepo: TaggerRepo
   scanRepo: ScanRepo
   settingsRepo: SettingsRepo
+  /** Resolves the bundled ffmpeg binary path (asar-aware). */
+  resolveFfmpegPath: () => string
   /** Override for deterministic timestamps in tests. */
   now?: () => number
 }
@@ -171,7 +178,7 @@ export interface RegisterTaggerHandlersOpts {
  * save-edit additionally enforces AUDIO_EXTS (T-4-01 + T-4-02 IPC mirror).
  */
 export function registerTaggerHandlers(opts: RegisterTaggerHandlersOpts): void {
-  const { ipcMain, taggerRepo, scanRepo, settingsRepo } = opts
+  const { ipcMain, taggerRepo, scanRepo, settingsRepo, resolveFfmpegPath } = opts
   const now = opts.now ?? ((): number => Date.now())
 
   ipcMain.handle(
@@ -294,6 +301,40 @@ export function registerTaggerHandlers(opts: RegisterTaggerHandlersOpts): void {
         source = 'mixed'
       }
       return { source, presets }
+    }
+  )
+
+  ipcMain.handle(
+    IpcChannels.TaggerGetWaveform,
+    async (
+      _e: IpcMainInvokeEvent,
+      filePath: unknown,
+      bars: unknown
+    ): Promise<WaveformResult> => {
+      const root = settingsRepo.get(ROOT_FOLDER_KEY)
+      // Degrade gracefully (empty waveform) rather than throwing into the
+      // renderer — a missing root or bad input must never break the card.
+      if (root === null) return { peaks: [], durationSec: null }
+      if (typeof filePath !== 'string' || !resolvesUnderRoot(filePath, root)) {
+        return { peaks: [], durationSec: null }
+      }
+      const ext = path.extname(filePath).toLowerCase()
+      if (!(AUDIO_EXTS as readonly string[]).includes(ext)) {
+        return { peaks: [], durationSec: null }
+      }
+      const barCount =
+        typeof bars === 'number' && Number.isFinite(bars)
+          ? Math.min(MAX_WAVEFORM_BARS, Math.max(1, Math.floor(bars)))
+          : 600
+      try {
+        return await extractWaveform({
+          ffmpegPath: resolveFfmpegPath(),
+          filePath,
+          bars: barCount
+        })
+      } catch {
+        return { peaks: [], durationSec: null }
+      }
     }
   )
 }

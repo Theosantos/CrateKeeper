@@ -40,7 +40,10 @@ function installCrateKeeperMock(): void {
       setSession: vi.fn<CrateKeeperApi['tagger']['setSession']>().mockResolvedValue(undefined),
       getGenrePresets: vi
         .fn<CrateKeeperApi['tagger']['getGenrePresets']>()
-        .mockResolvedValue({ source: 'defaults', presets: [] })
+        .mockResolvedValue({ source: 'defaults', presets: [] }),
+      getWaveform: vi
+        .fn<CrateKeeperApi['tagger']['getWaveform']>()
+        .mockResolvedValue({ peaks: [], durationSec: null })
     }
   }
   globalThis.window.crateKeeper = api

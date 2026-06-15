@@ -1,12 +1,21 @@
 import { act, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 import { AudioPreview } from './AudioPreview'
 
-// jsdom has no AudioContext / canvas 2d context, so the waveform-decode effect
-// is a guarded no-op here. These tests cover the playback contract: the
-// <audio> element, the canplay-gated autoplay + play button, and the time
-// readout — none of which depend on the waveform rendering.
+// The waveform now comes from the main process over IPC; stub it so the
+// component can render. jsdom has no canvas 2d context, so painting is a
+// no-op — these tests cover the playback contract (the <audio> element, the
+// canplay-gated autoplay + play button, and the time readout).
+beforeEach(() => {
+  globalThis.window.crateKeeper = {
+    tagger: {
+      getWaveform: vi
+        .fn()
+        .mockResolvedValue({ peaks: [], durationSec: null })
+    }
+  } as unknown as typeof window.crateKeeper
+})
 
 describe('AudioPreview', () => {
   it('renders <audio> with cratekeeper:// src (URI-encoded path)', () => {
