@@ -5,9 +5,11 @@
     <title>CrateKeeper</title>
     <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
     <!-- Phase 4: cratekeeper:// audio protocol; see audioProtocol.ts (Plan 04-01) -->
+    <!-- media-src: <audio> playback. connect-src: wavesurfer fetch()es the same
+         URL to decode peaks for the SoundCloud-style waveform. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' cratekeeper:;"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' cratekeeper:; connect-src 'self' cratekeeper:;"
     />
   </head>
 
