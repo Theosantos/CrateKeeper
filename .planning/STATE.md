@@ -2,29 +2,29 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-06-05T00:54:51.248Z"
+status: in_progress
+last_updated: "2026-06-15T00:00:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 11
-  completed_plans: 11
-  percent: 55
+  completed_phases: 4
+  total_plans: 14
+  completed_plans: 14
+  percent: 67
 ---
 
 # Project State — DJ Utils
 
 ## Current Status
 
-Phase: 1 — Foundation (Complete)
-Last updated: 2026-05-29
+Phase: 4 — Tagger Core (Complete, 2026-06-15)
+Last updated: 2026-06-15
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-05-28)
 
 **Core value:** Permettre à un DJ de passer de "bibliothèque en désordre" à "collection propre et taguée" sans quitter une seule interface.
-**Current focus:** Phase 03 — conversion
+**Current focus:** Phase 05 — Tag Writing & Rekordbox Compatibility (next)
 
 ## Phase History
 
@@ -34,6 +34,15 @@ Walking skeleton end-to-end: renderer ↔ window.djUtils ↔ main ↔ better-sql
 
 - **Plan 01-01** (2026-05-28, ~8 min): Scaffold + secure window + better-sqlite3 settings store + folder-pick/settings IPC bridge + Vitest infra. 5 commits (1 chore + 2 TDD RED/GREEN pairs). 7 tests green, build green. See `.planning/phases/01-foundation/01-01-SUMMARY.md`.
 - **Plan 01-02** (2026-05-29, ~35 min): Renderer vertical slice — Zustand store, three-tool nav (Analyser/Convertir/Tagger), RootFolderPicker, mount-time hydration, editorial dark-studio design tokens. 14/14 tests green, build green, human-verify checkpoint approved (FOUND-01/02/03 all confirmed). See `.planning/phases/01-foundation/01-02-SUMMARY.md`.
+
+### Phase 4 — Tagger Core (Complete, 2026-06-15)
+
+Swipe-style tagging queue with audio preview, inline editing, undo, and session resume. 479/479 tests green, build green. See `.planning/phases/04-tagger-core/04-VERIFICATION.md` (PASS-WITH-NOTES).
+
+- **Plan 04-01**: Main backbone — tagger IPC namespace, `taggerRepo` (`pending_tag_edits` + `tagger_session`), `scanRepo.listIncompleteFiles`, `cratekeeper://` audio protocol, genre presets.
+- **Plan 04-02**: Renderer card UX — `useTaggerStore`, `TaggerCard` (preview/rating/preset-bar/split), `useTaggerKeyboard`, transform-only slide animation.
+- **Plan 04-03**: Undo state machine + session resume + E2E test, then an extended user-driven UAT loop (see Key Decisions below).
+- **Post-checkpoint UX changes (user-approved):** removed BPM/Key editing (Rekordbox handles detection); replaced the fixed 30s preview with a full-track SoundCloud-style waveform decoded in the **main process via ffmpeg** (`tagger:get-waveform`); mute toggle → play/pause; partial-range audio protocol + ErrorBoundary + `render-process-gone` logging after diagnosing native renderer crashes.
 
 ## Accumulated Context
 
@@ -46,6 +55,9 @@ Walking skeleton end-to-end: renderer ↔ window.djUtils ↔ main ↔ better-sql
 - Stack pinned (verified 2025): electron-vite 5 + Vite 7 (NOT 8 — peer conflict), React 19, better-sqlite3 12, electron-builder 26 — use @quick-start/electron react-ts scaffold
 - Single persistence layer: better-sqlite3 settings key/value table (NOT electron-store) — tagger queue needs SQLite anyway
 - State-based 3-tool navigation via Zustand (NOT React Router)
+- Plan 04-03: Tagger writes edits to SQLite `pending_tag_edits` only — `applied_at` stays NULL until Phase 5 writes the file (a Phase-4 re-edit must NOT clear it). NOTHING is written to audio files yet.
+- Plan 04-03: Renderer must NOT decode audio (Web Audio `decodeAudioData` of full tracks crashed the renderer natively). Waveform peaks are decoded in the main process via ffmpeg and sent over IPC; the renderer only draws ~hundreds of floats. Playback stays on a plain `<audio>` element fed by the partial-range `cratekeeper://` protocol.
+- Plan 04-03: BPM/Key are not editable in the Tagger (user decision — Rekordbox detects them). Schema/IPC still carry the columns for Phase 5 forward-compat.
 - ID3v2.3 (not v2.4) required for Rekordbox compatibility — validate before Phase 5
 - FFmpeg binary path must be handled via asarUnpack from Phase 1 onwards
 - Strict Electron main/renderer split — all Node/FFmpeg calls go through IPC bridge via contextBridge preload
