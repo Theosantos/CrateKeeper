@@ -142,6 +142,8 @@ export function registerAudioProtocol(settingsRepo: SettingsRepo): void {
           'Content-Length': String(slice.byteLength),
           'Content-Range': `bytes ${start}-${end}/${size}`,
           'Accept-Ranges': 'bytes',
+          // wavesurfer fetch()es this URL cross-origin to decode peaks.
+          'Access-Control-Allow-Origin': '*',
           'Cache-Control': 'no-store'
         }
       })
@@ -154,6 +156,8 @@ export function registerAudioProtocol(settingsRepo: SettingsRepo): void {
         'Content-Type': mime,
         'Content-Length': String(full.byteLength),
         'Accept-Ranges': 'bytes',
+        // wavesurfer fetch()es this URL cross-origin to decode peaks.
+        'Access-Control-Allow-Origin': '*',
         'Cache-Control': 'no-store'
       }
     })

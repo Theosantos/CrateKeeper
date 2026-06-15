@@ -29,6 +29,10 @@ const ffmpegStatic = require('ffmpeg-static') as string
 
 // Pitfall 2: must run before app.whenReady so <audio> treats cratekeeper://
 // as a streaming origin (Phase 4 Tagger preview).
+// corsEnabled is REQUIRED for wavesurfer.js — it fetch()es the audio URL to
+// decode the waveform peaks, and that fetch is cross-origin relative to the
+// renderer page. Without corsEnabled the response is opaque and decode never
+// completes (no waveform, play stays disabled).
 protocol.registerSchemesAsPrivileged([
   {
     scheme: AUDIO_PROTOCOL_SCHEME,
@@ -37,6 +41,7 @@ protocol.registerSchemesAsPrivileged([
       supportFetchAPI: true,
       secure: true,
       standard: true,
+      corsEnabled: true,
       bypassCSP: false
     }
   }

@@ -182,6 +182,21 @@ describe('audioProtocol', () => {
     expect(res.headers.get('Accept-Ranges')).toBe('bytes')
   })
 
+  it('sets Access-Control-Allow-Origin so wavesurfer can decode (CORS)', async () => {
+    registerAudioProtocol(makeSettings('/Music'))
+    const handler = captureHandler()
+    const full = await handler(
+      makeReq('cratekeeper://audio/' + encodeURIComponent('/Music/song.mp3'))
+    )
+    expect(full.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    const partial = await handler(
+      makeReq('cratekeeper://audio/' + encodeURIComponent('/Music/song.mp3'), {
+        headers: { Range: 'bytes=0-99' }
+      })
+    )
+    expect(partial.headers.get('Access-Control-Allow-Origin')).toBe('*')
+  })
+
   it('sets Content-Type by extension so <audio> can decode the stream', async () => {
     registerAudioProtocol(makeSettings('/Music'))
     const handler = captureHandler()
