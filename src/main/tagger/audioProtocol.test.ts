@@ -6,14 +6,28 @@ vi.mock('electron', () => ({
   protocol: { handle: vi.fn() }
 }))
 
-// Mock fs.readFile so we can fabricate a 1000-byte body without touching disk.
+// Mock fs.stat + fs.open so we can fabricate a 1000-byte file without disk.
+// The file handle's read() fills the requested length so Content-Length checks
+// line up with the partial-read implementation.
 vi.mock('node:fs', async () => {
   const actual = await vi.importActual<typeof import('node:fs')>('node:fs')
   return {
     ...actual,
     promises: {
       ...actual.promises,
-      readFile: vi.fn(async (_p: string) => Buffer.alloc(1000, 0x41))
+      stat: vi.fn(async (_p: string) => ({ size: 1000 })),
+      open: vi.fn(async (_p: string) => ({
+        stat: async () => ({ size: 1000 }),
+        read: async (
+          buf: Buffer,
+          offset: number,
+          length: number
+        ): Promise<{ bytesRead: number }> => {
+          buf.fill(0x41, offset, offset + length)
+          return { bytesRead: length }
+        },
+        close: async () => {}
+      }))
     }
   }
 })

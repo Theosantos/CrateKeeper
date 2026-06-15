@@ -427,6 +427,45 @@ code {
   background: var(--color-surface-raised);
 }
 
+/* ── Error boundary ─────────────────────────────────────────────────────────── */
+
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+}
+
+.error-boundary__title {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-text-primary);
+}
+
+.error-boundary__message {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono, monospace);
+}
+
+.error-boundary__retry {
+  padding: var(--space-xs) var(--space-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.error-boundary__retry:hover {
+  color: var(--color-accent);
+}
+
 /* ── Analyser view ──────────────────────────────────────────────────────────── */
 
 .view--analyser {

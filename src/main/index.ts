@@ -70,6 +70,17 @@ function createWindow(): BrowserWindow {
     win.show()
   })
 
+  // Surface renderer crashes (white screen) in the terminal instead of failing
+  // silently — `reason`/`exitCode` tell us OOM vs crash vs killed.
+  win.webContents.on('render-process-gone', (_e, details) => {
+    // eslint-disable-next-line no-console
+    console.error('[main] renderer process gone:', details.reason, 'exitCode:', details.exitCode)
+  })
+  win.webContents.on('unresponsive', () => {
+    // eslint-disable-next-line no-console
+    console.error('[main] renderer became unresponsive')
+  })
+
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }

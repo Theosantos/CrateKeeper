@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { NavBar } from './components/nav/NavBar'
 import { RootFolderPicker } from './components/folder/RootFolderPicker'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { AnalyserView } from './views/AnalyserView'
 import { ConvertirView } from './views/ConvertirView'
 import { TaggerView } from './views/TaggerView'
@@ -36,7 +37,10 @@ function App(): React.JSX.Element {
         <RootFolderPicker />
       </header>
       <main className="app-shell__main">
-        <ActiveView />
+        {/* key by tool so switching views clears a prior view's error */}
+        <ErrorBoundary key={activeTool}>
+          <ActiveView />
+        </ErrorBoundary>
       </main>
     </div>
   )

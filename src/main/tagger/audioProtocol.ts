@@ -38,15 +38,31 @@ export function parseRange(
 }
 
 /**
- * Return a freshly-allocated Uint8Array slice with its own ArrayBuffer.
- * fs.readFile returns a Buffer backed by Node's pool; we copy to avoid
- * any cross-pool aliasing when the Response body is consumed downstream.
+ * Read only [start, end] (inclusive) of a file into a fresh standalone
+ * Uint8Array. Uses a file handle + partial read so we never load the whole
+ * file per request — the media element issues many Range requests during
+ * playback and on every seek, and reading the entire file each time spiked
+ * main-process memory until it crashed (white-screen renderer).
+ *
+ * `new Uint8Array(buf)` copies into a brand-new ArrayBuffer, so there is no
+ * aliasing with Node's internal Buffer pool.
  */
-function toFreshUint8(buf: Buffer, start: number, end: number): Uint8Array {
-  const length = end - start + 1
-  const out = new Uint8Array(length)
-  buf.copy(out, 0, start, end + 1)
-  return out
+async function readFileRange(
+  abs: string,
+  start: number,
+  end: number
+): Promise<Uint8Array> {
+  const length = Math.max(0, end - start + 1)
+  const fh = await fs.open(abs, 'r')
+  try {
+    const buf = Buffer.alloc(length)
+    if (length > 0) {
+      await fh.read(buf, 0, length, start)
+    }
+    return new Uint8Array(buf)
+  } finally {
+    await fh.close()
+  }
 }
 
 /**
@@ -116,50 +132,52 @@ export function registerAudioProtocol(settingsRepo: SettingsRepo): void {
       return new Response('Unsupported Media Type', { status: 415 })
     }
 
-    // Serve the file ourselves with explicit Content-Length + Range support.
-    // We read the whole file into memory and slice on Range — simple,
-    // correct, and fine for the preview track sizes we deal with (5–20 MB).
-    // The streaming approach via createReadStream / ReadableStream was
-    // dropping bytes / producing silence, so we stay with the buffered path.
+    // Serve with explicit Content-Length + Range support, reading ONLY the
+    // requested bytes (not the whole file) so repeated seeks / range requests
+    // don't spike main-process memory.
     const mime = AUDIO_MIME[ext] ?? 'application/octet-stream'
-    let data: Buffer
+    let size: number
     try {
-      data = await fs.readFile(abs)
+      const stat = await fs.stat(abs)
+      size = stat.size
     } catch {
       return new Response('Not Found', { status: 404 })
     }
-    const size = data.length
 
     const range = parseRange(request.headers.get('Range'), size)
-    if (range !== null) {
-      const { start, end } = range
-      const slice = toFreshUint8(data, start, end)
-      return new Response(slice as BodyInit, {
-        status: 206,
-        statusText: 'Partial Content',
+    try {
+      if (range !== null) {
+        const { start, end } = range
+        const slice = await readFileRange(abs, start, end)
+        return new Response(slice as BodyInit, {
+          status: 206,
+          statusText: 'Partial Content',
+          headers: {
+            'Content-Type': mime,
+            'Content-Length': String(slice.byteLength),
+            'Content-Range': `bytes ${start}-${end}/${size}`,
+            'Accept-Ranges': 'bytes',
+            // renderer fetch()es this URL cross-origin to decode the waveform.
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'no-store'
+          }
+        })
+      }
+
+      const full = await readFileRange(abs, 0, size - 1)
+      return new Response(full as BodyInit, {
+        status: 200,
         headers: {
           'Content-Type': mime,
-          'Content-Length': String(slice.byteLength),
-          'Content-Range': `bytes ${start}-${end}/${size}`,
+          'Content-Length': String(full.byteLength),
           'Accept-Ranges': 'bytes',
-          // wavesurfer fetch()es this URL cross-origin to decode peaks.
+          // renderer fetch()es this URL cross-origin to decode the waveform.
           'Access-Control-Allow-Origin': '*',
           'Cache-Control': 'no-store'
         }
       })
+    } catch {
+      return new Response('Not Found', { status: 404 })
     }
-
-    const full = toFreshUint8(data, 0, size - 1)
-    return new Response(full as BodyInit, {
-      status: 200,
-      headers: {
-        'Content-Type': mime,
-        'Content-Length': String(full.byteLength),
-        'Accept-Ranges': 'bytes',
-        // wavesurfer fetch()es this URL cross-origin to decode peaks.
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'no-store'
-      }
-    })
   })
 }
