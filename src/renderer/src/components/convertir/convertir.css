@@ -13,8 +13,15 @@
 .convertir__header {
   display: grid;
   grid-template-columns: 1fr auto;
-  align-items: end;
+  align-items: start;
   gap: var(--space-md);
+}
+
+/* Title + lede stack on the LEFT (col 1); the back button stays top-right
+ * (col 2). Mirrors the Analyser/Tagger header alignment. */
+.convertir__header-text {
+  display: grid;
+  gap: var(--space-sm);
 }
 
 .convertir__back {
@@ -40,7 +47,7 @@
 }
 
 .convertir__back:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .convertir__body {
@@ -117,7 +124,7 @@
 }
 
 .convertir__action:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .convertir__error {
@@ -257,7 +264,7 @@
 }
 
 .resume-banner__action:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 /* ── Preset selector ──────────────────────────────────────────────────────── */

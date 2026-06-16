@@ -19,7 +19,9 @@
   /* Type — three tiers, never washed out */
   --color-text-primary: oklch(96% 0.005 270);
   --color-text-secondary: oklch(72% 0.012 270);
-  --color-text-muted: oklch(54% 0.012 270);
+  /* muted lifted 54%→60% L so the smallest labels/hints clear ~4.5:1 on the
+   * dark base (ui-ux-pro-max accessibility: contrast). */
+  --color-text-muted: oklch(60% 0.012 270);
 
   /* Single accent — sodium amber, the colour of a cue button at 3am */
   --color-accent: oklch(78% 0.18 75);
@@ -43,10 +45,13 @@
   --space-2xl: 5rem;
   --space-section: clamp(3rem, 2rem + 4vw, 6rem);
 
-  /* Motion */
+  /* Motion — strong custom easings (per emil-design-eng). Built-in CSS easings
+   * are too weak; these give UI motion intentional punch. Never ease-in on UI. */
   --duration-fast: 140ms;
   --duration-normal: 260ms;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 
   /* Lines */
   --radius-sm: 4px;
@@ -54,9 +59,14 @@
   --radius-lg: 18px;
   --hairline: 1px solid var(--color-border-subtle);
 
-  /* Type stack */
+  /* Type stack — distinctive bundled variable display face (Bricolage Grotesque)
+   * reserved for headline moments (view titles + wordmark); a clean neutral
+   * carries body copy so small text stays maximally legible. */
   --font-display:
-    'Inter Tight', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    'Bricolage Grotesque Variable', 'Inter Tight', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', system-ui, sans-serif;
+  --font-body:
+    'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-mono:
     ui-monospace, 'SF Mono', 'Menlo', 'JetBrains Mono', Consolas, 'Liberation Mono', monospace;
 
@@ -86,7 +96,7 @@ html,
 body {
   background: var(--color-surface-base);
   color: var(--color-text-primary);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: var(--text-body);
   font-feature-settings: 'ss01', 'cv11';
   line-height: 1.5;
@@ -172,6 +182,9 @@ code {
 }
 
 .app-shell__brand-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--color-text-primary);
 }
 
@@ -233,7 +246,7 @@ code {
 }
 
 .tool-nav__button:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .tool-nav__button.is-active {
@@ -301,7 +314,7 @@ code {
 }
 
 .folder-picker__button:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .folder-picker__path {
@@ -401,6 +414,7 @@ code {
 }
 
 .view__title {
+  font-family: var(--font-display);
   font-size: var(--text-title);
   font-weight: 700;
   letter-spacing: -0.035em;
@@ -417,14 +431,61 @@ code {
   max-width: 56ch;
 }
 
+/* Page-load choreography — the view header rises in a short stagger on mount
+ * (and on every tool switch, since views re-mount keyed by activeTool). One
+ * orchestrated reveal reads as far more intentional than scattered micro-
+ * animations. Compositor-friendly (transform + opacity only). */
+@keyframes view-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.view__header > * {
+  animation: view-rise var(--duration-normal) var(--ease-out) both;
+}
+
+.view__title {
+  animation-delay: 0ms;
+}
+
+.view__lede {
+  animation-delay: 90ms;
+}
+
 .view__placeholder {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
+  display: grid;
+  gap: var(--space-xs);
+  place-items: center;
+  text-align: center;
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
   margin: 0;
-  padding: var(--space-md) var(--space-md);
-  border: 1px dashed var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-raised);
+  padding: var(--space-2xl) var(--space-lg);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(
+      ellipse at center top,
+      var(--color-accent-glow) 0%,
+      transparent 62%
+    ),
+    var(--color-surface-raised);
+}
+
+/* Brand mark leads the empty/loading state — turns a bare line of text into a
+ * composed, intentional panel (frontend-design: states that feel designed). */
+.view__placeholder::before {
+  content: '◆';
+  font-size: 1.375rem;
+  line-height: 1;
+  color: var(--color-accent);
+  opacity: 0.75;
 }
 
 /* ── Error boundary ─────────────────────────────────────────────────────────── */
@@ -577,7 +638,7 @@ code {
 }
 
 .scan-toolbar__button:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .scan-toolbar__hint {
@@ -872,5 +933,21 @@ code {
   .folder-picker__path {
     align-items: flex-start;
     text-align: left;
+  }
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────────── */
+/* Respect prefers-reduced-motion: collapse movement/animation to near-instant.
+ * The Tagger card slide relies on transitionend, which won't fire when motion
+ * is off — TaggerView.runWithSlide races it against a timeout so Keep/Skip
+ * still advances. (a11y: ui-ux-pro-max #1; emil-design-eng accessibility.) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

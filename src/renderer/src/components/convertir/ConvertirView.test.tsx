@@ -203,10 +203,6 @@ describe('ConvertirView', () => {
         preset: expect.objectContaining({ slug: 'mp3-320' })
       })
     })
-    expect(bridge.api.setSetting).toHaveBeenCalledWith(
-      'conversion.lastPreset',
-      expect.stringContaining('"mp3-320"')
-    )
   })
 
   it('while running, button text changes to Annuler and click calls conversion.cancel', async () => {
@@ -255,7 +251,9 @@ describe('ConvertirView', () => {
     ).toBeInTheDocument()
   })
 
-  it('on mount, reads conversion.lastPreset and applies setPreset when valid', async () => {
+  it('on mount, ignores any saved preset and keeps the MP3 320 default', async () => {
+    // Even if settings hold a previously-used FLAC preset, the page no longer
+    // restores it — it always defaults to MP3 320 (D-CONV-FORMAT).
     installBridge({
       getSetting: vi
         .fn<CrateKeeperApi['getSetting']>()
@@ -274,9 +272,8 @@ describe('ConvertirView', () => {
     resetStores()
 
     render(<ConvertirView />)
-    await waitFor(() => {
-      expect(useConversionStore.getState().selectedPreset.slug).toBe('flac')
-    })
+    await Promise.resolve()
+    expect(useConversionStore.getState().selectedPreset.slug).toBe('mp3-320')
   })
 
   it('subscribeEvents lifecycle: subscribes on mount, unsubscribes on unmount', () => {

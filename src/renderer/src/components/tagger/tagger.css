@@ -387,7 +387,7 @@
 }
 
 .tagger-action:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 /* ── Apply Banner (Phase 5) ─────────────────────────────────────────────── */
@@ -450,7 +450,7 @@
 }
 
 .apply-banner__cta:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .apply-banner__summary {

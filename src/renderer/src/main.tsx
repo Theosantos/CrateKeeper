@@ -1,3 +1,4 @@
+import '@fontsource-variable/bricolage-grotesque/wght.css'
 import './assets/main.css'
 import './components/convertir/convertir.css'
 

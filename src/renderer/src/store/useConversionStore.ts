@@ -206,8 +206,6 @@ export const useConversionStore = create<ConversionState>((set, get) => {
           preset
         })
         set({ conversionId: id })
-        // LOCKED persistence: remember the last preset used for next launch.
-        await window.crateKeeper.setSetting('conversion.lastPreset', JSON.stringify(preset))
       } catch (err: unknown) {
         if (isBatchAlreadyActive(err)) {
           set({

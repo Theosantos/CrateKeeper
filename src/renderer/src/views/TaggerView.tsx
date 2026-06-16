@@ -107,11 +107,22 @@ export function TaggerView(): React.JSX.Element {
           resolve()
           return
         }
-        const onEnd = (): void => {
+        // transitionend may never fire — an interrupted transition, a no-op
+        // property change, or prefers-reduced-motion (instant). Race it against
+        // a fallback so Keep/Skip always runs and the card never hangs
+        // mid-slide. The slide is 250ms; 400ms covers it with headroom.
+        const SLIDE_FALLBACK_MS = 400
+        let settled = false
+        const finish = (): void => {
+          if (settled) return
+          settled = true
           el.removeEventListener('transitionend', onEnd)
+          clearTimeout(timer)
           resolve()
         }
+        const onEnd = (): void => finish()
         el.addEventListener('transitionend', onEnd)
+        const timer = window.setTimeout(finish, SLIDE_FALLBACK_MS)
       })
       await action()
       setExitDirection(null)
@@ -149,15 +160,21 @@ export function TaggerView(): React.JSX.Element {
     onPreset: applyPreset
   })
 
+  const taggerHeader = (
+    <header className="view__header">
+      <h2 id="view-tagger-heading" className="view__title">
+        Tagger
+      </h2>
+      <p className="view__lede">
+        Écoute chaque son non classé, renseigne ses tags, puis garde ou passe.
+      </p>
+    </header>
+  )
+
   if (status === 'loading') {
     return (
       <section className="view" aria-labelledby="view-tagger-heading">
-        <header className="view__header">
-          <p className="view__eyebrow">Phase 4</p>
-          <h2 id="view-tagger-heading" className="view__title">
-            Tagger
-          </h2>
-        </header>
+        {taggerHeader}
         <p className="view__placeholder">Chargement…</p>
       </section>
     )
@@ -166,12 +183,7 @@ export function TaggerView(): React.JSX.Element {
   if (status === 'empty') {
     return (
       <section className="view" aria-labelledby="view-tagger-heading">
-        <header className="view__header">
-          <p className="view__eyebrow">Phase 4</p>
-          <h2 id="view-tagger-heading" className="view__title">
-            Tagger
-          </h2>
-        </header>
+        {taggerHeader}
         <p className="view__placeholder">
           Lance un scan dans l&apos;Analyser pour démarrer.
         </p>
@@ -182,12 +194,7 @@ export function TaggerView(): React.JSX.Element {
   if (currentIndex >= queueLength || currentFile === null) {
     return (
       <section className="view" aria-labelledby="view-tagger-heading">
-        <header className="view__header">
-          <p className="view__eyebrow">Phase 4</p>
-          <h2 id="view-tagger-heading" className="view__title">
-            Tagger
-          </h2>
-        </header>
+        {taggerHeader}
         <p className="view__placeholder">
           Bibliothèque terminée pour ce scan.
         </p>
@@ -203,12 +210,7 @@ export function TaggerView(): React.JSX.Element {
 
   return (
     <section className="view" aria-labelledby="view-tagger-heading">
-      <header className="view__header">
-        <p className="view__eyebrow">Phase 4</p>
-        <h2 id="view-tagger-heading" className="view__title">
-          Tagger
-        </h2>
-      </header>
+      {taggerHeader}
       <ApplyBanner />
       <div
         ref={wrapperRef}
