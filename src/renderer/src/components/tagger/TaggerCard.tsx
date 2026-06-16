@@ -1,9 +1,11 @@
+import { useEffect } from 'react'
 import type { ScannedFile } from '../../../../shared/ipc-types'
-import { selectCurrentFile, useTaggerStore } from '../../store/useTaggerStore'
+import { useTaggerStore } from '../../store/useTaggerStore'
 import { AudioPreview } from './AudioPreview'
 import { ArtistTitleSplit } from './ArtistTitleSplit'
 import { GenrePresetBar } from './GenrePresetBar'
 import { RatingStars } from './RatingStars'
+import { stripAudioExt, suggestSplits } from './splitDetection'
 
 interface TaggerCardProps {
   file: ScannedFile
@@ -77,16 +79,31 @@ export function TaggerCard({
   const basename = basenameOf(file.path)
   const parent = parentOf(file.path)
 
+  // Default the Titre field to the filename (sans extension) the first time a
+  // card is shown, so a Keep saves a sensible title with no manual typing.
+  // Seeds once per card (keyed on file.path) and is skipped when:
+  //  - the user already has a dirty edit for this file (never fight an edit/clear),
+  //  - the file already carries a saved title, or
+  //  - an Artist/Title split is being proposed (the user picks the split instead).
+  useEffect(() => {
+    const store = useTaggerStore.getState()
+    const currentFile = store.queue[store.currentIndex]
+    if (currentFile === undefined || currentFile.path !== file.path) return
+    if (store.dirtyEdits.has(file.path)) return
+    const pendingEdit = store.pendingEdits.get(file.path)
+    if ((pendingEdit?.title ?? null) !== null) return
+    const artist = pendingEdit?.artist ?? null
+    const artistEmpty = artist === null || artist === ''
+    const bn = basenameOf(file.path)
+    if (artistEmpty && suggestSplits(bn) !== null) return
+    const defaultTitle = stripAudioExt(bn)
+    if (defaultTitle.length > 0) store.setDirtyEdit('title', defaultTitle)
+  }, [file.path])
+
   return (
-    <article
-      className="tagger-card"
-      aria-labelledby={`tagger-card-title-${basename}`}
-    >
+    <article className="tagger-card" aria-labelledby={`tagger-card-title-${basename}`}>
       <header className="tagger-card__header">
-        <h3
-          id={`tagger-card-title-${basename}`}
-          className="tagger-card__title"
-        >
+        <h3 id={`tagger-card-title-${basename}`} className="tagger-card__title">
           {basename}
         </h3>
         {parent !== '' && <p className="tagger-card__path">{parent}</p>}
@@ -182,6 +199,3 @@ export function TaggerCard({
     </article>
   )
 }
-
-// Exported for parent shells that want to read the current-file selector.
-export { selectCurrentFile }

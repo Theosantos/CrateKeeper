@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ApplyBanner } from '../components/tagger/ApplyBanner'
 import { TaggerCard } from '../components/tagger/TaggerCard'
 import '../components/tagger/tagger.css'
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback'
@@ -31,6 +32,7 @@ export function TaggerView(): React.JSX.Element {
   const loadQueue = useTaggerStore((s) => s.loadQueue)
   const loadGenrePresets = useTaggerStore((s) => s.loadGenrePresets)
   const loadMuteSetting = useTaggerStore((s) => s.loadMuteSetting)
+  const loadPendingWriteCount = useTaggerStore((s) => s.loadPendingWriteCount)
   const keep = useTaggerStore((s) => s.keep)
   const skip = useTaggerStore((s) => s.skip)
   const undo = useTaggerStore((s) => s.undo)
@@ -54,7 +56,12 @@ export function TaggerView(): React.JSX.Element {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      await Promise.all([loadQueue(), loadGenrePresets(), loadMuteSetting()])
+      await Promise.all([
+        loadQueue(),
+        loadGenrePresets(),
+        loadMuteSetting(),
+        loadPendingWriteCount()
+      ])
       if (cancelled) return
       const session = await window.crateKeeper.tagger.getSession()
       if (cancelled || session === null || session.currentFilePath === null) {
@@ -69,7 +76,7 @@ export function TaggerView(): React.JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [loadQueue, loadGenrePresets, loadMuteSetting])
+  }, [loadQueue, loadGenrePresets, loadMuteSetting, loadPendingWriteCount])
 
   // beforeunload synchronous flush (Pitfall 1).
   useEffect(() => {
@@ -184,6 +191,7 @@ export function TaggerView(): React.JSX.Element {
         <p className="view__placeholder">
           Bibliothèque terminée pour ce scan.
         </p>
+        <ApplyBanner />
       </section>
     )
   }
@@ -201,6 +209,7 @@ export function TaggerView(): React.JSX.Element {
           Tagger
         </h2>
       </header>
+      <ApplyBanner />
       <div
         ref={wrapperRef}
         className={wrapperClass}

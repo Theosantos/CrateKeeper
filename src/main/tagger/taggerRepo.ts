@@ -25,6 +25,22 @@ export interface TaggerRepo {
    * top `limit` non-empty genres ordered by count DESC.
    */
   topGenres(limit: number): GenreCount[]
+  /**
+   * Phase 5 — Returns all pending_tag_edits that have not yet been written,
+   * OR were re-edited after a prior write (Option B re-edit predicate, adopted
+   * per RESEARCH recommendation):
+   *   `applied_at IS NULL OR updated_at > applied_at`
+   *
+   * This correctly re-includes rows where the user made a new edit after a prior
+   * Appliquer pass without clearing applied_at (04-CONTEXT.md constraint).
+   */
+  listPendingWrites(): PendingTagEdit[]
+  /**
+   * Phase 5 — Mark a single file as written (D-05 per-file retryable).
+   * Sets applied_at=now ONLY for the named file_path. A per-file write failure
+   * leaves applied_at=NULL for that path so it stays retryable.
+   */
+  markApplied(filePath: string, now: number): void
 }
 
 /**
@@ -168,6 +184,19 @@ export function createTaggerRepo(db: Database.Database): TaggerRepo {
       'GROUP BY genre ORDER BY count DESC LIMIT ?'
   )
 
+  // Phase 5: re-edit predicate (Option B, adopted per RESEARCH recommendation):
+  // Rows are pending if applied_at IS NULL (never written) OR updated_at > applied_at
+  // (re-edited after a prior write). Does NOT clear applied_at on re-edit.
+  const listPendingWritesStmt = db.prepare(
+    'SELECT * FROM pending_tag_edits ' +
+    'WHERE applied_at IS NULL OR updated_at > applied_at'
+  )
+
+  // Phase 5: per-file mark-applied. Positional bind: (now, filePath).
+  const markAppliedStmt = db.prepare(
+    'UPDATE pending_tag_edits SET applied_at = ? WHERE file_path = ?'
+  )
+
   return {
     upsertEdit(row, now) {
       upsertEditStmt.run({
@@ -226,6 +255,15 @@ export function createTaggerRepo(db: Database.Database): TaggerRepo {
     topGenres(limit) {
       const rows = topGenresStmt.all(limit) as GenreCountDb[]
       return rows.map((r) => ({ genre: r.genre, count: Number(r.count) }))
+    },
+
+    listPendingWrites() {
+      const rows = listPendingWritesStmt.all() as PendingTagEditDb[]
+      return rows.map(toPendingTagEdit)
+    },
+
+    markApplied(filePath, now) {
+      markAppliedStmt.run(now, filePath)
     }
   }
 }

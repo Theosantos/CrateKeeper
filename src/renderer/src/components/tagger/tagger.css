@@ -389,3 +389,132 @@
 .tagger-action:active:not(:disabled) {
   transform: translateY(1px);
 }
+
+/* ── Apply Banner (Phase 5) ─────────────────────────────────────────────── */
+
+.apply-banner {
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface-raised);
+  border: var(--hairline);
+  border-radius: var(--radius-md);
+  max-width: 720px;
+}
+
+.apply-banner__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.apply-banner__count {
+  margin: 0;
+  font-size: var(--text-eyebrow);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  flex: 1 1 auto;
+}
+
+.apply-banner__cta {
+  flex: 0 0 auto;
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  color: oklch(15% 0.02 75);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast) var(--ease-out-expo),
+    opacity var(--duration-fast) var(--ease-out-expo);
+}
+
+.apply-banner__cta:hover:not(:disabled) {
+  background: var(--color-accent-strong);
+  border-color: var(--color-accent-strong);
+}
+
+.apply-banner__cta:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.apply-banner__cta:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.apply-banner__cta:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.apply-banner__summary {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.apply-banner__error {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-status-error);
+}
+
+.apply-banner__results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.apply-banner__result-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  font-size: 0.8125rem;
+}
+
+.apply-banner__badge {
+  flex: 0 0 auto;
+  padding: 1px var(--space-xs);
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.apply-banner__badge--done {
+  background: oklch(30% 0.08 145);
+  color: oklch(85% 0.12 145);
+}
+
+.apply-banner__badge--error {
+  background: oklch(25% 0.08 20);
+  color: var(--color-status-error, oklch(70% 0.16 20));
+}
+
+.apply-banner__result-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+
+.apply-banner__result-error {
+  color: var(--color-status-error, oklch(70% 0.16 20));
+  font-size: 0.75rem;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

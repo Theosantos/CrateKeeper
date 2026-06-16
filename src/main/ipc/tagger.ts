@@ -2,6 +2,7 @@ import type { IpcMain, IpcMainInvokeEvent } from 'electron'
 import path from 'node:path'
 import {
   IpcChannels,
+  type ApplyResult,
   type GenrePresetsResult,
   type PendingTagEdit,
   type SaveTagEditInput,
@@ -12,10 +13,8 @@ import {
 import type { TaggerRepo } from '../tagger/taggerRepo'
 import type { ScanRepo } from '../scan/scanRepo'
 import type { SettingsRepo } from '../db/settingsRepo'
-import {
-  HARDCODED_GENRE_FALLBACK,
-  mergeGenrePresets
-} from '../tagger/queueBuilder'
+import type { ApplyController } from '../tagger/applyController'
+import { HARDCODED_GENRE_FALLBACK, mergeGenrePresets } from '../tagger/queueBuilder'
 import { AUDIO_EXTS } from '../workers/scanCore'
 import { extractWaveform } from '../tagger/waveform'
 
@@ -31,10 +30,7 @@ const MIN_BPM = 1
 const MAX_BPM = 399 // T-4-05
 const ALLOWED_RATINGS: ReadonlySet<number> = new Set([1, 2, 3, 4, 5]) // T-4-04
 
-function assertObject(
-  v: unknown,
-  label: string
-): asserts v is Record<string, unknown> {
+function assertObject(v: unknown, label: string): asserts v is Record<string, unknown> {
   if (v === null || typeof v !== 'object') {
     throw new TypeError(label + ': payload must be an object')
   }
@@ -43,10 +39,7 @@ function assertObject(
 function resolvesUnderRoot(filePath: string, rootFolder: string): boolean {
   const resolvedFile = path.resolve(filePath)
   const resolvedRoot = path.resolve(rootFolder)
-  return (
-    resolvedFile === resolvedRoot ||
-    resolvedFile.startsWith(resolvedRoot + path.sep)
-  )
+  return resolvedFile === resolvedRoot || resolvedFile.startsWith(resolvedRoot + path.sep)
 }
 
 function assertAudioExt(filePath: string, label: string): void {
@@ -54,6 +47,24 @@ function assertAudioExt(filePath: string, label: string): void {
   if (!(AUDIO_EXTS as readonly string[]).includes(ext)) {
     throw new Error(label + ': file extension not in AUDIO_EXTS')
   }
+}
+
+/**
+ * Security gate (T-05-PT / T-05-IV defence-in-depth): filter a list of DB
+ * pending edits to those whose filePath resolves under the current rootFolder
+ * and has an AUDIO_EXTS extension. Edits failing either check are dropped —
+ * never written. Reuses resolvesUnderRoot + assertAudioExt without copying
+ * their implementations.
+ *
+ * Exported for unit-testability in tagger.test.ts.
+ */
+export function filterWritableEdits(edits: PendingTagEdit[], rootFolder: string): PendingTagEdit[] {
+  return edits.filter((edit) => {
+    if (!resolvesUnderRoot(edit.filePath, rootFolder)) return false
+    const ext = path.extname(edit.filePath).toLowerCase()
+    if (!(AUDIO_EXTS as readonly string[]).includes(ext)) return false
+    return true
+  })
 }
 
 function assertOptionalText(
@@ -67,9 +78,14 @@ function assertOptionalText(
     throw new TypeError(label + ': ' + field + ' must be a string or null')
   }
   if (v.length > maxLen) {
-    throw new Error(
-      label + ': ' + field + ' exceeds max length ' + String(maxLen)
-    )
+    throw new Error(label + ': ' + field + ' exceeds max length ' + String(maxLen))
+  }
+  // Reject C0 control characters / DEL (T-05-IV / CR-02): newlines and other
+  // control bytes have no place in tag text and can corrupt ffmpeg -metadata
+  // tokens downstream. Printable punctuation is preserved (legit tag text).
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001F\u007F]/.test(v)) {
+    throw new Error(label + ': ' + field + ' contains control characters')
   }
   return v
 }
@@ -105,10 +121,7 @@ function assertOptionalRating(v: unknown, label: string): number | null {
  * Mitigations: T-4-01 (folder allowlist), T-4-02 (extension allowlist),
  * T-4-03 (length caps), T-4-04 (rating set), T-4-05 (bpm bounds).
  */
-function assertSaveEditInput(
-  payload: unknown,
-  rootFolder: string
-): SaveTagEditInput {
+function assertSaveEditInput(payload: unknown, rootFolder: string): SaveTagEditInput {
   const label = IpcChannels.TaggerSaveEdit
   assertObject(payload, label)
   const fp = (payload as { filePath?: unknown }).filePath
@@ -122,41 +135,23 @@ function assertSaveEditInput(
 
   return {
     filePath: fp,
-    genre: assertOptionalText(
-      (payload as { genre?: unknown }).genre,
-      'genre',
-      MAX_TEXT_LEN,
-      label
-    ),
+    genre: assertOptionalText((payload as { genre?: unknown }).genre, 'genre', MAX_TEXT_LEN, label),
     artist: assertOptionalText(
       (payload as { artist?: unknown }).artist,
       'artist',
       MAX_TEXT_LEN,
       label
     ),
-    title: assertOptionalText(
-      (payload as { title?: unknown }).title,
-      'title',
-      MAX_TEXT_LEN,
-      label
-    ),
+    title: assertOptionalText((payload as { title?: unknown }).title, 'title', MAX_TEXT_LEN, label),
     comment: assertOptionalText(
       (payload as { comment?: unknown }).comment,
       'comment',
       MAX_TEXT_LEN,
       label
     ),
-    key: assertOptionalText(
-      (payload as { key?: unknown }).key,
-      'key',
-      MAX_KEY_LEN,
-      label
-    ),
+    key: assertOptionalText((payload as { key?: unknown }).key, 'key', MAX_KEY_LEN, label),
     bpm: assertOptionalBpm((payload as { bpm?: unknown }).bpm, label),
-    rating: assertOptionalRating(
-      (payload as { rating?: unknown }).rating,
-      label
-    )
+    rating: assertOptionalRating((payload as { rating?: unknown }).rating, label)
   }
 }
 
@@ -167,6 +162,11 @@ export interface RegisterTaggerHandlersOpts {
   settingsRepo: SettingsRepo
   /** Resolves the bundled ffmpeg binary path (asar-aware). */
   resolveFfmpegPath: () => string
+  /**
+   * Phase 5: batch write controller. Runs the sequential apply loop and
+   * streams per-file results via makeTaggerWriteSender.
+   */
+  applyController?: ApplyController
   /** Override for deterministic timestamps in tests. */
   now?: () => number
 }
@@ -178,29 +178,26 @@ export interface RegisterTaggerHandlersOpts {
  * save-edit additionally enforces AUDIO_EXTS (T-4-01 + T-4-02 IPC mirror).
  */
 export function registerTaggerHandlers(opts: RegisterTaggerHandlersOpts): void {
-  const { ipcMain, taggerRepo, scanRepo, settingsRepo, resolveFfmpegPath } = opts
+  const { ipcMain, taggerRepo, scanRepo, settingsRepo, resolveFfmpegPath, applyController } = opts
   const now = opts.now ?? ((): number => Date.now())
 
-  ipcMain.handle(
-    IpcChannels.TaggerLoadQueue,
-    async (_e: IpcMainInvokeEvent): Promise<TaggerQueueResult> => {
-      const root = settingsRepo.get(ROOT_FOLDER_KEY)
-      if (root === null) {
-        return { scanId: null, files: [], pendingEdits: {} }
-      }
-      const scan = scanRepo.findLatestScan(root)
-      if (scan === null) {
-        return { scanId: null, files: [], pendingEdits: {} }
-      }
-      const files = scanRepo.listIncompleteFiles(scan.id)
-      const editsMap = taggerRepo.listEditsByPaths(files.map((f) => f.path))
-      const pendingEdits: Record<string, PendingTagEdit> = {}
-      for (const [k, v] of editsMap) {
-        pendingEdits[k] = v
-      }
-      return { scanId: scan.id, files, pendingEdits }
+  ipcMain.handle(IpcChannels.TaggerLoadQueue, async (): Promise<TaggerQueueResult> => {
+    const root = settingsRepo.get(ROOT_FOLDER_KEY)
+    if (root === null) {
+      return { scanId: null, files: [], pendingEdits: {} }
     }
-  )
+    const scan = scanRepo.findLatestScan(root)
+    if (scan === null) {
+      return { scanId: null, files: [], pendingEdits: {} }
+    }
+    const files = scanRepo.listIncompleteFiles(scan.id)
+    const editsMap = taggerRepo.listEditsByPaths(files.map((f) => f.path))
+    const pendingEdits: Record<string, PendingTagEdit> = {}
+    for (const [k, v] of editsMap) {
+      pendingEdits[k] = v
+    }
+    return { scanId: scan.id, files, pendingEdits }
+  })
 
   ipcMain.handle(
     IpcChannels.TaggerSaveEdit,
@@ -263,9 +260,7 @@ export function registerTaggerHandlers(opts: RegisterTaggerHandlersOpts): void {
       const cfp = (payload as { currentFilePath?: unknown }).currentFilePath
       if (cfp !== null) {
         if (typeof cfp !== 'string') {
-          throw new TypeError(
-            label + ': currentFilePath must be string or null'
-          )
+          throw new TypeError(label + ': currentFilePath must be string or null')
         }
         if (!resolvesUnderRoot(cfp, root)) {
           throw new Error(label + ': file not under rootFolder')
@@ -286,31 +281,24 @@ export function registerTaggerHandlers(opts: RegisterTaggerHandlersOpts): void {
     }
   )
 
-  ipcMain.handle(
-    IpcChannels.TaggerGetGenrePresets,
-    async (): Promise<GenrePresetsResult> => {
-      const top = taggerRepo.topGenres(9)
-      const libraryNames = top.map((r) => r.genre)
-      const presets = mergeGenrePresets(libraryNames, HARDCODED_GENRE_FALLBACK)
-      let source: GenrePresetsResult['source']
-      if (libraryNames.length === 0) {
-        source = 'defaults'
-      } else if (libraryNames.length >= 9) {
-        source = 'library'
-      } else {
-        source = 'mixed'
-      }
-      return { source, presets }
+  ipcMain.handle(IpcChannels.TaggerGetGenrePresets, async (): Promise<GenrePresetsResult> => {
+    const top = taggerRepo.topGenres(9)
+    const libraryNames = top.map((r) => r.genre)
+    const presets = mergeGenrePresets(libraryNames, HARDCODED_GENRE_FALLBACK)
+    let source: GenrePresetsResult['source']
+    if (libraryNames.length === 0) {
+      source = 'defaults'
+    } else if (libraryNames.length >= 9) {
+      source = 'library'
+    } else {
+      source = 'mixed'
     }
-  )
+    return { source, presets }
+  })
 
   ipcMain.handle(
     IpcChannels.TaggerGetWaveform,
-    async (
-      _e: IpcMainInvokeEvent,
-      filePath: unknown,
-      bars: unknown
-    ): Promise<WaveformResult> => {
+    async (_e: IpcMainInvokeEvent, filePath: unknown, bars: unknown): Promise<WaveformResult> => {
       const root = settingsRepo.get(ROOT_FOLDER_KEY)
       // Degrade gracefully (empty waveform) rather than throwing into the
       // renderer — a missing root or bad input must never break the card.
@@ -337,4 +325,32 @@ export function registerTaggerHandlers(opts: RegisterTaggerHandlersOpts): void {
       }
     }
   )
+
+  // Phase 5 — tagger:apply-writes
+  // Triggers the sequential batch write loop for all pending tag edits.
+  // Security gate: rootFolder must be set; the pending list is filtered through
+  // filterWritableEdits and ONLY the result is handed to the controller, so
+  // out-of-root / non-audio DB paths never reach the writer (T-05-PT, T-05-IV).
+  ipcMain.handle(IpcChannels.TaggerApplyWrites, async (): Promise<ApplyResult> => {
+    const root = settingsRepo.get(ROOT_FOLDER_KEY)
+    if (root === null) {
+      throw new Error(IpcChannels.TaggerApplyWrites + ': rootFolder not set')
+    }
+    if (!applyController) {
+      throw new Error(IpcChannels.TaggerApplyWrites + ': applyController not configured')
+    }
+    // The filter is now LOAD-BEARING (CR-01): the controller writes exactly
+    // the edits we pass it. Out-of-root or non-audio rows are dropped here and
+    // never reach writeMp3Tags / writeMp4Tags.
+    const pending = taggerRepo.listPendingWrites()
+    const safe = filterWritableEdits(pending, root)
+    return applyController.applyPendingWrites(safe)
+  })
+
+  // Phase 5 — tagger:pending-count
+  // Returns the count of pending tag edits (re-edit-aware predicate).
+  // Drives the Appliquer button badge in Plan 03.
+  ipcMain.handle(IpcChannels.TaggerPendingCount, async (): Promise<number> => {
+    return taggerRepo.listPendingWrites().length
+  })
 }

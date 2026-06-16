@@ -45,7 +45,11 @@ export const IpcChannels = {
   TaggerGetSession: 'tagger:get-session',
   TaggerSetSession: 'tagger:set-session',
   TaggerGetGenrePresets: 'tagger:get-genre-presets',
-  TaggerGetWaveform: 'tagger:get-waveform'
+  TaggerGetWaveform: 'tagger:get-waveform',
+  // Phase 5 — tag writer namespace.
+  TaggerApplyWrites: 'tagger:apply-writes',    // invoke → ApplyResult
+  TaggerPendingCount: 'tagger:pending-count',  // invoke → number
+  TaggerWriteEvent: 'tagger:write-event'       // main→renderer push (on() only)
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -247,6 +251,23 @@ export interface SaveTagEditInput {
   rating?: number | null
 }
 
+// ───────────────────────── Phase 5 — tag writer ──────────────────────────────
+
+/**
+ * Per-file write result pushed main→renderer over IpcChannels.TaggerWriteEvent.
+ * Mirrors ConversionEvent discriminated union shape from Phase 3.
+ */
+export type TagWriteEvent =
+  | { type: 'fileDone'; filePath: string; ok: true }
+  | { type: 'fileDone'; filePath: string; ok: false; error: string }
+  | { type: 'done'; totalWritten: number; totalFailed: number }
+
+/** Returned from tagger:apply-writes invoke. */
+export interface ApplyResult {
+  totalWritten: number
+  totalFailed: number
+}
+
 export interface CrateKeeperTaggerApi {
   loadQueue(): Promise<TaggerQueueResult>
   saveEdit(input: SaveTagEditInput): Promise<void>
@@ -259,6 +280,15 @@ export interface CrateKeeperTaggerApi {
   getGenrePresets(): Promise<GenrePresetsResult>
   /** Decode a normalized waveform for `filePath` in the main process. */
   getWaveform(filePath: string, bars: number): Promise<WaveformResult>
+  /** Trigger the batch write loop for all pending tag edits. */
+  applyWrites(): Promise<ApplyResult>
+  /** Returns the count of pending tag edits (re-edit-aware). */
+  getPendingCount(): Promise<number>
+  /**
+   * Subscribe to tagger:write-event pushes (per-file + done events).
+   * Returns an unsubscribe closure to avoid listener leaks.
+   */
+  onWriteEvent(cb: (e: TagWriteEvent) => void): () => void
 }
 
 export interface CrateKeeperApi {

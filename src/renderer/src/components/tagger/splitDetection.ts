@@ -41,7 +41,7 @@ const AUDIO_EXTS = [
   '.opus'
 ] as const
 
-function stripAudioExt(s: string): string {
+export function stripAudioExt(s: string): string {
   const lower = s.toLowerCase()
   for (const ext of AUDIO_EXTS) {
     if (lower.endsWith(ext)) {

@@ -10,7 +10,9 @@ import {
   type TaggerSession,
   type GenrePresetsResult,
   type SaveTagEditInput,
-  type WaveformResult
+  type WaveformResult,
+  type TagWriteEvent,
+  type ApplyResult
 } from '../shared/ipc-types'
 
 const crateKeeper: CrateKeeperApi = {
@@ -68,7 +70,18 @@ const crateKeeper: CrateKeeperApi = {
     getGenrePresets: (): Promise<GenrePresetsResult> =>
       ipcRenderer.invoke(IpcChannels.TaggerGetGenrePresets),
     getWaveform: (filePath: string, bars: number): Promise<WaveformResult> =>
-      ipcRenderer.invoke(IpcChannels.TaggerGetWaveform, filePath, bars)
+      ipcRenderer.invoke(IpcChannels.TaggerGetWaveform, filePath, bars),
+    applyWrites: (): Promise<ApplyResult> =>
+      ipcRenderer.invoke(IpcChannels.TaggerApplyWrites),
+    getPendingCount: (): Promise<number> =>
+      ipcRenderer.invoke(IpcChannels.TaggerPendingCount),
+    onWriteEvent: (cb: (e: TagWriteEvent) => void): () => void => {
+      const handler = (_: unknown, e: TagWriteEvent): void => cb(e)
+      ipcRenderer.on(IpcChannels.TaggerWriteEvent, handler)
+      return (): void => {
+        ipcRenderer.off(IpcChannels.TaggerWriteEvent, handler)
+      }
+    }
   }
 }
 

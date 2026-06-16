@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   CrateKeeperApi,
   ScannedFile,
+  TagWriteEvent,
   TaggerQueueResult,
   TaggerSession
 } from '../../../../shared/ipc-types'
@@ -54,11 +55,15 @@ interface MockedTaggerBridge {
   getGenrePresets: ReturnType<typeof vi.fn>
   getSetting: ReturnType<typeof vi.fn>
   setSetting: ReturnType<typeof vi.fn>
+  getPendingCount: ReturnType<typeof vi.fn>
+  applyWrites: ReturnType<typeof vi.fn>
+  onWriteEvent: ReturnType<typeof vi.fn>
 }
 
 function installMock(opts: {
   files: ScannedFile[]
   session?: TaggerSession | null
+  pendingCount?: number
 }): MockedTaggerBridge {
   const queueResult: TaggerQueueResult = {
     scanId: 'test-scan',
@@ -89,6 +94,9 @@ function installMock(opts: {
   const getWaveform = vi
     .fn()
     .mockResolvedValue({ peaks: [], durationSec: null })
+  const getPendingCount = vi.fn().mockResolvedValue(opts.pendingCount ?? 0)
+  const applyWrites = vi.fn().mockResolvedValue(undefined)
+  const onWriteEvent = vi.fn().mockReturnValue(() => {})
   globalThis.window.crateKeeper = {
     pickFolder: vi.fn().mockResolvedValue(null),
     getRootFolder: vi.fn().mockResolvedValue(null),
@@ -109,7 +117,10 @@ function installMock(opts: {
       getSession,
       setSession,
       getGenrePresets,
-      getWaveform
+      getWaveform,
+      getPendingCount,
+      applyWrites,
+      onWriteEvent
     } as unknown as CrateKeeperApi['tagger']
   }
   return {
@@ -120,7 +131,10 @@ function installMock(opts: {
     setSession,
     getGenrePresets,
     getSetting,
-    setSetting
+    setSetting,
+    getPendingCount,
+    applyWrites,
+    onWriteEvent
   }
 }
 
@@ -330,5 +344,101 @@ describe('Tagger end-to-end', () => {
 
     // Annuler now disabled again.
     expect(screen.getByRole('button', { name: 'Annuler' })).toBeDisabled()
+  })
+
+  // ─────────── Plan 05-03 Task 3: E2E apply slice ───────────────────────────
+
+  /**
+   * End-to-end apply surface test (Plan 05-03 Task 3).
+   *
+   * Renders TaggerView with a mocked bridge where:
+   *  - getPendingCount returns 2 → ApplyBanner shows "Appliquer (2)"
+   *  - clicking Appliquer drives fileDone(ok) + fileDone(ok:false) + done
+   *  - asserts: Écrit + Erreur badges + "1 écrits, 1 erreurs" summary
+   *
+   * Manual verifications documented as human-check items for end-of-phase gate:
+   *
+   * [SC #1] Mp3tag (TAGS-01): After a real Appliquer run on a sample MP3, open
+   *   the file in Mp3tag and confirm Artist/Title/Genre/BPM/Key/Comment and the
+   *   star rating show the edited values.
+   *
+   * [SC #2] Crash-safety (TAGS-02): During a large Appliquer batch, force-kill
+   *   the app process mid-write; relaunch; confirm no zero-byte or truncated
+   *   source files and that not-yet-written files remain in the pending queue.
+   *
+   * [SC #3] Rekordbox (TAGS-03): Import a written MP3 (4-star) into Rekordbox
+   *   6.x and confirm integer BPM, Camelot Key, Genre, and that the star rating
+   *   renders as 4 stars — validates the POPM byte scale (51/102/153/204/255 → A3).
+   *   If Rekordbox shows a different star count, flag the POPM mapping for revision.
+   */
+  it('apply surface: banner shows Appliquer(2), click drives per-file feedback + summary', async () => {
+    const files = [makeFile('/m/a.mp3'), makeFile('/m/b.mp3')]
+
+    // Capture the onWriteEvent callback so tests can drive events manually.
+    let capturedCb: ((e: TagWriteEvent) => void) | null = null
+    let resolveApply!: () => void
+
+    const m = installMock({ files, pendingCount: 2 })
+
+    // Override onWriteEvent and applyWrites AFTER installMock so we control them.
+    m.onWriteEvent.mockImplementation((cb: (e: TagWriteEvent) => void) => {
+      capturedCb = cb
+      return () => {}
+    })
+    m.applyWrites.mockReturnValue(
+      new Promise<void>((r) => {
+        resolveApply = r
+      })
+    )
+    // getPendingCount returns 2 on mount, then 1 after done (one file failed).
+    m.getPendingCount.mockResolvedValueOnce(2).mockResolvedValueOnce(1)
+
+    render(<TaggerView />)
+
+    // Wait for the view to load and the banner to appear.
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Appliquer (2)' })
+      ).toBeInTheDocument()
+    })
+
+    // Click the Appliquer button.
+    fireEvent.click(screen.getByRole('button', { name: 'Appliquer (2)' }))
+
+    // While applying: button shows Écriture… and is disabled.
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Écriture…' })
+      ).toBeDisabled()
+    })
+    expect(m.applyWrites).toHaveBeenCalledOnce()
+
+    // Simulate per-file events from the main process.
+    act(() => {
+      capturedCb!({ type: 'fileDone', filePath: '/m/a.mp3', ok: true })
+    })
+    act(() => {
+      capturedCb!({ type: 'fileDone', filePath: '/m/b.mp3', ok: false, error: 'write failed' })
+    })
+    act(() => {
+      capturedCb!({ type: 'done', totalWritten: 1, totalFailed: 1 })
+    })
+    resolveApply()
+
+    // After done: Écrit + Erreur badges visible.
+    await waitFor(() => {
+      expect(screen.getByText('Écrit')).toBeInTheDocument()
+      expect(screen.getByText('Erreur')).toBeInTheDocument()
+    })
+
+    // Summary line.
+    expect(screen.getByText('1 écrits, 1 erreurs')).toBeInTheDocument()
+
+    // Filenames shown in banner result list (use queryAllByText and check at least one
+    // is inside the banner section to avoid collision with TaggerCard heading text).
+    const banner = document.querySelector('.apply-banner')
+    expect(banner).not.toBeNull()
+    expect(banner!.textContent).toContain('a.mp3')
+    expect(banner!.textContent).toContain('b.mp3')
   })
 })

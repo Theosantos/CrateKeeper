@@ -24,6 +24,11 @@ import {
   registerAudioProtocol
 } from './tagger/audioProtocol'
 import { registerTaggerHandlers } from './ipc/tagger'
+import {
+  createApplyController,
+  makeTaggerWriteSender
+} from './tagger/applyController'
+import { writeMp3Tags, writeMp4Tags } from './tagger/tagWriter'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const ffmpegStatic = require('ffmpeg-static') as string
 
@@ -178,13 +183,29 @@ app.whenReady().then(() => {
   // under settings.rootFolder; IPC handlers expose the 6-channel surface
   // documented in 04-CONTEXT.md.
   registerAudioProtocol(getSettingsRepo())
+
+  // Phase 5: Tag writer backbone. The apply controller wraps the sequential
+  // write loop (writeMp3Tags / writeMp4Tags via the resolved ffmpeg binary)
+  // and streams per-file results to the renderer via the push sender.
+  const taggerWriteSend = makeTaggerWriteSender(
+    () => mainWindow?.webContents ?? null
+  )
+  const applyController = createApplyController({
+    taggerRepo: getTaggerRepo(),
+    writeMp3Tags,
+    writeMp4Tags,
+    ffmpegBinaryPath: resolveFfmpegPath({ rawPath: ffmpegStatic, isPackaged: app.isPackaged }),
+    send: taggerWriteSend
+  })
+
   registerTaggerHandlers({
     ipcMain,
     taggerRepo: getTaggerRepo(),
     scanRepo: getScanRepo(),
     settingsRepo: getSettingsRepo(),
     resolveFfmpegPath: () =>
-      resolveFfmpegPath({ rawPath: ffmpegStatic, isPackaged: app.isPackaged })
+      resolveFfmpegPath({ rawPath: ffmpegStatic, isPackaged: app.isPackaged }),
+    applyController
   })
 
   mainWindow = createWindow()
