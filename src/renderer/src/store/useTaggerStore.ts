@@ -121,9 +121,7 @@ export const useTaggerStore = create<TaggerState>((set, get) => ({
   async loadQueue(): Promise<void> {
     set({ status: 'loading' })
     const r = await window.crateKeeper.tagger.loadQueue()
-    const pending = new Map<string, PendingTagEdit>(
-      Object.entries(r.pendingEdits ?? {})
-    )
+    const pending = new Map<string, PendingTagEdit>(Object.entries(r.pendingEdits ?? {}))
     set({
       queue: r.files,
       scanId: r.scanId,
@@ -165,10 +163,7 @@ export const useTaggerStore = create<TaggerState>((set, get) => ({
       if (e.type === 'fileDone') {
         set((s) => {
           const next = new Map(s.writeResults)
-          next.set(
-            e.filePath,
-            e.ok ? { ok: true } : { ok: false, error: e.error }
-          )
+          next.set(e.filePath, e.ok ? { ok: true } : { ok: false, error: e.error })
           return { writeResults: next }
         })
         return
@@ -202,8 +197,7 @@ export const useTaggerStore = create<TaggerState>((set, get) => ({
     const next = new Map(dirtyEdits)
     const prior = next.get(file.path) ?? { ...EMPTY_DIRTY }
     // Empty strings clear the field (null = no override)
-    const normalised =
-      typeof value === 'string' && value === '' ? null : value
+    const normalised = typeof value === 'string' && value === '' ? null : value
     next.set(file.path, { ...prior, [field]: normalised } as DirtyEdit)
     set({ dirtyEdits: next })
   },
@@ -230,10 +224,7 @@ export const useTaggerStore = create<TaggerState>((set, get) => ({
     const { queue, currentIndex, dirtyEdits, pendingEdits } = get()
     const file = queue[currentIndex]
     if (file === undefined) return
-    const current =
-      dirtyEdits.get(file.path)?.rating ??
-      pendingEdits.get(file.path)?.rating ??
-      null
+    const current = dirtyEdits.get(file.path)?.rating ?? pendingEdits.get(file.path)?.rating ?? null
     // Toggle: clicking the same rating clears it.
     const nextRating = rating !== null && current === rating ? null : rating
     get().setDirtyEdit('rating', nextRating)
@@ -241,10 +232,7 @@ export const useTaggerStore = create<TaggerState>((set, get) => ({
 
   async setMute(enabled): Promise<void> {
     set({ muteEnabled: enabled })
-    await window.crateKeeper.setSetting(
-      'tagger.muteEnabled',
-      enabled ? 'true' : 'false'
-    )
+    await window.crateKeeper.setSetting('tagger.muteEnabled', enabled ? 'true' : 'false')
   },
 
   async toggleMute(): Promise<void> {
@@ -296,6 +284,10 @@ export const useTaggerStore = create<TaggerState>((set, get) => ({
         savedEdit: merged
       }
     })
+    // Refresh the Appliquer (N) badge — saving a (re-)edit changes the
+    // re-edit-aware pending-writes count. Source of truth is the main process
+    // (D-03), not the in-memory map, so re-query rather than derive.
+    void get().loadPendingWriteCount()
     return { filePath: file.path, edit: merged, prior }
   },
 
@@ -336,6 +328,8 @@ export const useTaggerStore = create<TaggerState>((set, get) => ({
         currentIndex: Math.max(0, currentIndex - 1),
         lastAction: null
       })
+      // Undoing a Keep removes a pending write — refresh the badge.
+      void get().loadPendingWriteCount()
       return
     }
     // Restore prior.
@@ -356,6 +350,8 @@ export const useTaggerStore = create<TaggerState>((set, get) => ({
       currentIndex: Math.max(0, currentIndex - 1),
       lastAction: null
     })
+    // Restoring the prior row can change the pending-writes count — refresh.
+    void get().loadPendingWriteCount()
   },
 
   reset(): void {

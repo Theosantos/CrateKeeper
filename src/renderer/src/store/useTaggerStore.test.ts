@@ -40,13 +40,15 @@ interface MockedTaggerApi {
   onWriteEvent: ReturnType<typeof vi.fn>
 }
 
-function installMock(opts: {
-  queue?: ScannedFile[]
-  pendingEdits?: Record<string, PendingTagEdit>
-  presets?: GenrePresetsResult
-  muteSetting?: string | null
-  pendingCount?: number
-} = {}): MockedTaggerApi {
+function installMock(
+  opts: {
+    queue?: ScannedFile[]
+    pendingEdits?: Record<string, PendingTagEdit>
+    presets?: GenrePresetsResult
+    muteSetting?: string | null
+    pendingCount?: number
+  } = {}
+): MockedTaggerApi {
   const queueResult: TaggerQueueResult = {
     scanId: 'scan-1',
     files: opts.queue ?? [],
@@ -57,24 +59,22 @@ function installMock(opts: {
   const deleteEdit = vi.fn().mockResolvedValue(undefined)
   const getSession = vi.fn().mockResolvedValue(null)
   const setSession = vi.fn().mockResolvedValue(undefined)
-  const getGenrePresets = vi
-    .fn()
-    .mockResolvedValue(
-      opts.presets ?? {
-        source: 'defaults',
-        presets: [
-          'House',
-          'Techno',
-          'Afro House',
-          'Melodic',
-          'Disco',
-          'Hip-Hop',
-          'Funk',
-          'Deep',
-          'Electronica'
-        ]
-      }
-    )
+  const getGenrePresets = vi.fn().mockResolvedValue(
+    opts.presets ?? {
+      source: 'defaults',
+      presets: [
+        'House',
+        'Techno',
+        'Afro House',
+        'Melodic',
+        'Disco',
+        'Hip-Hop',
+        'Funk',
+        'Deep',
+        'Electronica'
+      ]
+    }
+  )
   const getSetting = vi.fn().mockResolvedValue(opts.muteSetting ?? null)
   const setSetting = vi.fn().mockResolvedValue(undefined)
   const getPendingCount = vi.fn().mockResolvedValue(opts.pendingCount ?? 0)
@@ -213,9 +213,7 @@ describe('useTaggerStore', () => {
     await useTaggerStore.getState().loadQueue()
     useTaggerStore.getState().setDirtyEdit('genre', 'Techno')
     useTaggerStore.getState().setDirtyEdit('genre', '')
-    expect(
-      useTaggerStore.getState().dirtyEdits.get('/m/a.mp3')?.genre
-    ).toBeNull()
+    expect(useTaggerStore.getState().dirtyEdits.get('/m/a.mp3')?.genre).toBeNull()
   })
 
   it('applyPreset(3) sets genre to genrePresets[2]', async () => {
@@ -229,9 +227,7 @@ describe('useTaggerStore', () => {
     await useTaggerStore.getState().loadQueue()
     await useTaggerStore.getState().loadGenrePresets()
     useTaggerStore.getState().applyPreset(3)
-    expect(
-      useTaggerStore.getState().dirtyEdits.get('/m/a.mp3')?.genre
-    ).toBe('C')
+    expect(useTaggerStore.getState().dirtyEdits.get('/m/a.mp3')?.genre).toBe('C')
   })
 
   it('applyPreset out-of-range (0 / 10) is a no-op', async () => {
@@ -254,9 +250,7 @@ describe('useTaggerStore', () => {
     installMock({ queue: [makeFile('/m/a.mp3')] })
     await useTaggerStore.getState().loadQueue()
     const before = useTaggerStore.getState().dirtyEdits
-    useTaggerStore
-      .getState()
-      .applySplit({ artist: 'Daft Punk', title: 'Around The World' })
+    useTaggerStore.getState().applySplit({ artist: 'Daft Punk', title: 'Around The World' })
     const after = useTaggerStore.getState().dirtyEdits
     expect(after).not.toBe(before)
     const e = after.get('/m/a.mp3')
@@ -268,9 +262,7 @@ describe('useTaggerStore', () => {
     installMock({ queue: [makeFile('/m/a.mp3')] })
     await useTaggerStore.getState().loadQueue()
     useTaggerStore.getState().setRating(3)
-    expect(
-      useTaggerStore.getState().dirtyEdits.get('/m/a.mp3')?.rating
-    ).toBe(3)
+    expect(useTaggerStore.getState().dirtyEdits.get('/m/a.mp3')?.rating).toBe(3)
   })
 
   it('setRating(N) on current rating === N clears to null (toggle)', async () => {
@@ -278,9 +270,7 @@ describe('useTaggerStore', () => {
     await useTaggerStore.getState().loadQueue()
     useTaggerStore.getState().setRating(4)
     useTaggerStore.getState().setRating(4)
-    expect(
-      useTaggerStore.getState().dirtyEdits.get('/m/a.mp3')?.rating
-    ).toBeNull()
+    expect(useTaggerStore.getState().dirtyEdits.get('/m/a.mp3')?.rating).toBeNull()
   })
 
   it('setMute persists via setSetting', async () => {
@@ -325,6 +315,43 @@ describe('useTaggerStore', () => {
     expect(useTaggerStore.getState().dirtyEdits.has('/m/a.mp3')).toBe(false)
     expect(result?.filePath).toBe('/m/a.mp3')
     expect(result?.prior).toBeNull()
+  })
+
+  it('keep refreshes the Appliquer (N) count — badge is not left stale after a save', async () => {
+    const api = installMock({
+      queue: [makeFile('/m/a.mp3'), makeFile('/m/b.mp3')],
+      pendingCount: 12
+    })
+    await useTaggerStore.getState().loadQueue()
+    await useTaggerStore.getState().loadPendingWriteCount()
+    expect(useTaggerStore.getState().pendingWriteCount).toBe(12)
+
+    // Saving a new edit creates a pending row → the badge must re-query, not
+    // stay frozen on its mount-time value (the reported bug).
+    api.getPendingCount.mockResolvedValue(13)
+    await useTaggerStore.getState().keep()
+
+    await vi.waitFor(() => {
+      expect(useTaggerStore.getState().pendingWriteCount).toBe(13)
+    })
+    expect(api.getPendingCount).toHaveBeenCalledTimes(2)
+  })
+
+  it('undo of a Keep refreshes the Appliquer (N) count', async () => {
+    const api = installMock({
+      queue: [makeFile('/m/a.mp3'), makeFile('/m/b.mp3')],
+      pendingCount: 12
+    })
+    await useTaggerStore.getState().loadQueue()
+    useTaggerStore.getState().setDirtyEdit('genre', 'Techno')
+    api.getPendingCount.mockResolvedValue(13)
+    await useTaggerStore.getState().keep()
+    await vi.waitFor(() => expect(useTaggerStore.getState().pendingWriteCount).toBe(13))
+
+    // Undoing the Keep (no prior row) deletes the edit → count goes back down.
+    api.getPendingCount.mockResolvedValue(12)
+    await useTaggerStore.getState().undo()
+    await vi.waitFor(() => expect(useTaggerStore.getState().pendingWriteCount).toBe(12))
   })
 
   it('skip advances index without calling saveEdit; discards dirty edits', async () => {
@@ -443,9 +470,7 @@ describe('useTaggerStore', () => {
     await useTaggerStore.getState().loadQueue()
     useTaggerStore.getState().setDirtyEdit('genre', 'Techno')
     await useTaggerStore.getState().keep()
-    expect(
-      useTaggerStore.getState().pendingEdits.get('/m/a.mp3')?.genre
-    ).toBe('Techno')
+    expect(useTaggerStore.getState().pendingEdits.get('/m/a.mp3')?.genre).toBe('Techno')
     // saveEdit called once for the keep.
     expect(api.saveEdit).toHaveBeenCalledTimes(1)
 
@@ -462,9 +487,7 @@ describe('useTaggerStore', () => {
       })
     )
     expect(api.deleteEdit).not.toHaveBeenCalled()
-    expect(useTaggerStore.getState().pendingEdits.get('/m/a.mp3')).toEqual(
-      priorEdit
-    )
+    expect(useTaggerStore.getState().pendingEdits.get('/m/a.mp3')).toEqual(priorEdit)
     expect(useTaggerStore.getState().currentIndex).toBe(0)
     expect(useTaggerStore.getState().lastAction).toBeNull()
   })
@@ -602,7 +625,11 @@ describe('useTaggerStore', () => {
       return () => {}
     })
     let resolveApply!: () => void
-    api.applyWrites.mockReturnValue(new Promise<void>((r) => { resolveApply = r }))
+    api.applyWrites.mockReturnValue(
+      new Promise<void>((r) => {
+        resolveApply = r
+      })
+    )
 
     void useTaggerStore.getState().applyWrites()
     const before = useTaggerStore.getState().writeResults
@@ -635,7 +662,11 @@ describe('useTaggerStore', () => {
       return () => {}
     })
     let resolveApply!: () => void
-    api.applyWrites.mockReturnValue(new Promise<void>((r) => { resolveApply = r }))
+    api.applyWrites.mockReturnValue(
+      new Promise<void>((r) => {
+        resolveApply = r
+      })
+    )
 
     void useTaggerStore.getState().applyWrites()
     expect(useTaggerStore.getState().isApplying).toBe(true)
@@ -658,7 +689,11 @@ describe('useTaggerStore', () => {
     })
     api.getPendingCount.mockResolvedValueOnce(3).mockResolvedValueOnce(0)
     let resolveApply!: () => void
-    api.applyWrites.mockReturnValue(new Promise<void>((r) => { resolveApply = r }))
+    api.applyWrites.mockReturnValue(
+      new Promise<void>((r) => {
+        resolveApply = r
+      })
+    )
 
     void useTaggerStore.getState().applyWrites()
     // Trigger done.
