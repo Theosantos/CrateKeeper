@@ -83,6 +83,9 @@ function installMock(
   const getWaveform = vi
     .fn()
     .mockResolvedValue({ peaks: [], durationSec: null })
+  const getPendingCount = vi.fn().mockResolvedValue(0)
+  const applyWrites = vi.fn().mockResolvedValue(undefined)
+  const onWriteEvent = vi.fn().mockReturnValue(() => {})
   globalThis.window.crateKeeper = {
     pickFolder: vi.fn().mockResolvedValue(null),
     getRootFolder: vi.fn().mockResolvedValue(null),
@@ -103,7 +106,10 @@ function installMock(
       getSession,
       setSession,
       getGenrePresets,
-      getWaveform
+      getWaveform,
+      getPendingCount,
+      applyWrites,
+      onWriteEvent
     } as unknown as CrateKeeperApi['tagger']
   }
   return {
