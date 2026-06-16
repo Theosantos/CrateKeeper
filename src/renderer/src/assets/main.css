@@ -19,7 +19,9 @@
   /* Type — three tiers, never washed out */
   --color-text-primary: oklch(96% 0.005 270);
   --color-text-secondary: oklch(72% 0.012 270);
-  --color-text-muted: oklch(54% 0.012 270);
+  /* muted lifted 54%→60% L so the smallest labels/hints clear ~4.5:1 on the
+   * dark base (ui-ux-pro-max accessibility: contrast). */
+  --color-text-muted: oklch(60% 0.012 270);
 
   /* Single accent — sodium amber, the colour of a cue button at 3am */
   --color-accent: oklch(78% 0.18 75);
@@ -461,13 +463,33 @@ code {
 }
 
 .view__placeholder {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
+  display: grid;
+  gap: var(--space-xs);
+  place-items: center;
+  text-align: center;
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
   margin: 0;
-  padding: var(--space-md) var(--space-md);
-  border: 1px dashed var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-raised);
+  padding: var(--space-2xl) var(--space-lg);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(
+      ellipse at center top,
+      var(--color-accent-glow) 0%,
+      transparent 62%
+    ),
+    var(--color-surface-raised);
+}
+
+/* Brand mark leads the empty/loading state — turns a bare line of text into a
+ * composed, intentional panel (frontend-design: states that feel designed). */
+.view__placeholder::before {
+  content: '◆';
+  font-size: 1.375rem;
+  line-height: 1;
+  color: var(--color-accent);
+  opacity: 0.75;
 }
 
 /* ── Error boundary ─────────────────────────────────────────────────────────── */
