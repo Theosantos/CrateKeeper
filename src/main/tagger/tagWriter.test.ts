@@ -154,7 +154,8 @@ suite('tagWriter round-trip (real files)', () => {
       const id3Native = meta.native['ID3v2.3'] ?? []
       const popm = id3Native.find((f) => f.id === 'POPM')
       expect(popm).toBeDefined()
-      expect(popm?.value?.rating).toBe(204)
+      const popmValue = popm?.value as { rating?: number } | undefined
+      expect(popmValue?.rating).toBe(204)
     },
     30_000
   )

@@ -116,9 +116,9 @@ export async function writeMp3Tags(filePath: string, input: Mp3TagInput): Promis
     await fs.copyFile(filePath, tmp)
 
     // 2. NodeID3.update merges into the temp copy, preserving untouched frames (D-04)
+    // Returns true on success or an Error instance on failure (never false per types).
     const result = NodeID3.update(tags, tmp)
     if (result instanceof Error) throw result
-    if (result === false) throw new Error('node-id3 update returned false')
 
     // 3. Atomic rename: temp → original (POSIX atomic, Windows MoveFileExW near-atomic)
     await fs.rename(tmp, filePath)
