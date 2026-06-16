@@ -57,9 +57,14 @@
   --radius-lg: 18px;
   --hairline: 1px solid var(--color-border-subtle);
 
-  /* Type stack */
+  /* Type stack — distinctive bundled variable display face (Bricolage Grotesque)
+   * reserved for headline moments (view titles + wordmark); a clean neutral
+   * carries body copy so small text stays maximally legible. */
   --font-display:
-    'Inter Tight', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    'Bricolage Grotesque Variable', 'Inter Tight', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', system-ui, sans-serif;
+  --font-body:
+    'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-mono:
     ui-monospace, 'SF Mono', 'Menlo', 'JetBrains Mono', Consolas, 'Liberation Mono', monospace;
 
@@ -89,7 +94,7 @@ html,
 body {
   background: var(--color-surface-base);
   color: var(--color-text-primary);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: var(--text-body);
   font-feature-settings: 'ss01', 'cv11';
   line-height: 1.5;
@@ -175,6 +180,9 @@ code {
 }
 
 .app-shell__brand-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--color-text-primary);
 }
 
@@ -404,6 +412,7 @@ code {
 }
 
 .view__title {
+  font-family: var(--font-display);
   font-size: var(--text-title);
   font-weight: 700;
   letter-spacing: -0.035em;

@@ -29,6 +29,7 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@fontsource-variable/bricolage-grotesque": "^5.2.10",
     "@tanstack/react-virtual": "^3.13.26",
     "better-sqlite3": "^12.10.0",
     "csv-stringify": "^6.7.0",
