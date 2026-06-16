@@ -4,6 +4,7 @@ import type {
   GenrePresetsResult,
   PendingTagEdit,
   ScannedFile,
+  TagWriteEvent,
   TaggerQueueResult
 } from '../../../shared/ipc-types'
 import { selectCurrentFile, useTaggerStore } from './useTaggerStore'
@@ -34,6 +35,9 @@ interface MockedTaggerApi {
   getGenrePresets: ReturnType<typeof vi.fn>
   getSetting: ReturnType<typeof vi.fn>
   setSetting: ReturnType<typeof vi.fn>
+  getPendingCount: ReturnType<typeof vi.fn>
+  applyWrites: ReturnType<typeof vi.fn>
+  onWriteEvent: ReturnType<typeof vi.fn>
 }
 
 function installMock(opts: {
@@ -41,6 +45,7 @@ function installMock(opts: {
   pendingEdits?: Record<string, PendingTagEdit>
   presets?: GenrePresetsResult
   muteSetting?: string | null
+  pendingCount?: number
 } = {}): MockedTaggerApi {
   const queueResult: TaggerQueueResult = {
     scanId: 'scan-1',
@@ -72,6 +77,10 @@ function installMock(opts: {
     )
   const getSetting = vi.fn().mockResolvedValue(opts.muteSetting ?? null)
   const setSetting = vi.fn().mockResolvedValue(undefined)
+  const getPendingCount = vi.fn().mockResolvedValue(opts.pendingCount ?? 0)
+  const applyWrites = vi.fn().mockResolvedValue(undefined)
+  // onWriteEvent: captures callback so tests can drive events manually
+  const onWriteEvent = vi.fn().mockReturnValue(() => {})
 
   globalThis.window.crateKeeper = {
     pickFolder: vi.fn().mockResolvedValue(null),
@@ -92,7 +101,10 @@ function installMock(opts: {
       deleteEdit,
       getSession,
       setSession,
-      getGenrePresets
+      getGenrePresets,
+      getPendingCount,
+      applyWrites,
+      onWriteEvent
     } as unknown as CrateKeeperApi['tagger']
   }
 
@@ -104,7 +116,10 @@ function installMock(opts: {
     setSession,
     getGenrePresets,
     getSetting,
-    setSetting
+    setSetting,
+    getPendingCount,
+    applyWrites,
+    onWriteEvent
   }
 }
 
@@ -523,5 +538,135 @@ describe('useTaggerStore', () => {
     expect(selectCurrentFile(useTaggerStore.getState())?.path).toBe('/m/b.mp3')
     useTaggerStore.getState().skip()
     expect(selectCurrentFile(useTaggerStore.getState())).toBeNull()
+  })
+
+  // ────────────── Phase 5 Plan 05-03: applyWrites + loadPendingWriteCount ──────
+
+  it('loadPendingWriteCount sets pendingWriteCount from bridge', async () => {
+    installMock({ pendingCount: 5 })
+    await useTaggerStore.getState().loadPendingWriteCount()
+    expect(useTaggerStore.getState().pendingWriteCount).toBe(5)
+  })
+
+  it('applyWrites: subscribes before invoking; isApplying true during apply', async () => {
+    const api = installMock({ pendingCount: 2 })
+    // Make applyWrites never resolve so we can observe the intermediate state.
+    let resolveApply!: () => void
+    api.applyWrites.mockReturnValue(
+      new Promise<void>((r) => {
+        resolveApply = r
+      })
+    )
+    // Drive events manually from the captured callback.
+    let capturedCb: ((e: TagWriteEvent) => void) | null = null
+    api.onWriteEvent.mockImplementation((cb: (e: TagWriteEvent) => void) => {
+      capturedCb = cb
+      return () => {}
+    })
+
+    const promise = useTaggerStore.getState().applyWrites()
+
+    // onWriteEvent must be called BEFORE applyWrites.
+    expect(api.onWriteEvent).toHaveBeenCalledBefore(api.applyWrites)
+    expect(useTaggerStore.getState().isApplying).toBe(true)
+    expect(useTaggerStore.getState().applyResult).toBeNull()
+    expect(useTaggerStore.getState().writeResults.size).toBe(0)
+
+    // Simulate fileDone events.
+    capturedCb!({ type: 'fileDone', filePath: '/m/a.mp3', ok: true })
+    expect(useTaggerStore.getState().writeResults.get('/m/a.mp3')).toEqual({ ok: true })
+
+    capturedCb!({ type: 'fileDone', filePath: '/m/b.mp3', ok: false, error: 'write error' })
+    expect(useTaggerStore.getState().writeResults.get('/m/b.mp3')).toEqual({
+      ok: false,
+      error: 'write error'
+    })
+
+    // Simulate done event.
+    capturedCb!({ type: 'done', totalWritten: 1, totalFailed: 1 })
+    expect(useTaggerStore.getState().isApplying).toBe(false)
+    expect(useTaggerStore.getState().applyResult).toEqual({
+      totalWritten: 1,
+      totalFailed: 1
+    })
+
+    resolveApply()
+    await promise
+  })
+
+  it('applyWrites: writeResults Map identity changes on each fileDone (immutability)', async () => {
+    const api = installMock({ pendingCount: 2 })
+    let capturedCb: ((e: TagWriteEvent) => void) | null = null
+    api.onWriteEvent.mockImplementation((cb: (e: TagWriteEvent) => void) => {
+      capturedCb = cb
+      return () => {}
+    })
+    let resolveApply!: () => void
+    api.applyWrites.mockReturnValue(new Promise<void>((r) => { resolveApply = r }))
+
+    void useTaggerStore.getState().applyWrites()
+    const before = useTaggerStore.getState().writeResults
+
+    capturedCb!({ type: 'fileDone', filePath: '/m/a.mp3', ok: true })
+    const after = useTaggerStore.getState().writeResults
+    expect(after).not.toBe(before)
+
+    resolveApply()
+  })
+
+  it('applyWrites: on rejection sets applyError, clears isApplying, calls unsub', async () => {
+    const api = installMock({ pendingCount: 1 })
+    const mockUnsub = vi.fn()
+    api.onWriteEvent.mockReturnValue(mockUnsub)
+    api.applyWrites.mockRejectedValue(new Error('network failure'))
+
+    await useTaggerStore.getState().applyWrites()
+
+    expect(useTaggerStore.getState().isApplying).toBe(false)
+    expect(useTaggerStore.getState().applyError).toBe('network failure')
+    expect(mockUnsub).toHaveBeenCalledOnce()
+  })
+
+  it('applyWrites: re-entry is a no-op while isApplying=true', async () => {
+    const api = installMock({ pendingCount: 1 })
+    let capturedCb: ((e: TagWriteEvent) => void) | null = null
+    api.onWriteEvent.mockImplementation((cb: (e: TagWriteEvent) => void) => {
+      capturedCb = cb
+      return () => {}
+    })
+    let resolveApply!: () => void
+    api.applyWrites.mockReturnValue(new Promise<void>((r) => { resolveApply = r }))
+
+    void useTaggerStore.getState().applyWrites()
+    expect(useTaggerStore.getState().isApplying).toBe(true)
+
+    // Second call while already applying should be a no-op.
+    await useTaggerStore.getState().applyWrites()
+    expect(api.onWriteEvent).toHaveBeenCalledTimes(1)
+    expect(api.applyWrites).toHaveBeenCalledTimes(1)
+
+    capturedCb!({ type: 'done', totalWritten: 1, totalFailed: 0 })
+    resolveApply()
+  })
+
+  it('applyWrites: done event triggers loadPendingWriteCount refresh', async () => {
+    const api = installMock({ pendingCount: 3 })
+    let capturedCb: ((e: TagWriteEvent) => void) | null = null
+    api.onWriteEvent.mockImplementation((cb: (e: TagWriteEvent) => void) => {
+      capturedCb = cb
+      return () => {}
+    })
+    api.getPendingCount.mockResolvedValueOnce(3).mockResolvedValueOnce(0)
+    let resolveApply!: () => void
+    api.applyWrites.mockReturnValue(new Promise<void>((r) => { resolveApply = r }))
+
+    void useTaggerStore.getState().applyWrites()
+    // Trigger done.
+    capturedCb!({ type: 'done', totalWritten: 3, totalFailed: 0 })
+    resolveApply()
+
+    // Wait for the refreshed count after done.
+    await new Promise<void>((r) => setTimeout(r, 0))
+    expect(api.getPendingCount).toHaveBeenCalledTimes(1)
   })
 })
