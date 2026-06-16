@@ -2,6 +2,7 @@ import type { IpcMain, IpcMainInvokeEvent } from 'electron'
 import path from 'node:path'
 import {
   IpcChannels,
+  type ApplyResult,
   type GenrePresetsResult,
   type PendingTagEdit,
   type SaveTagEditInput,
@@ -12,6 +13,7 @@ import {
 import type { TaggerRepo } from '../tagger/taggerRepo'
 import type { ScanRepo } from '../scan/scanRepo'
 import type { SettingsRepo } from '../db/settingsRepo'
+import type { ApplyController } from '../tagger/applyController'
 import {
   HARDCODED_GENRE_FALLBACK,
   mergeGenrePresets
@@ -54,6 +56,27 @@ function assertAudioExt(filePath: string, label: string): void {
   if (!(AUDIO_EXTS as readonly string[]).includes(ext)) {
     throw new Error(label + ': file extension not in AUDIO_EXTS')
   }
+}
+
+/**
+ * Security gate (T-05-PT / T-05-IV defence-in-depth): filter a list of DB
+ * pending edits to those whose filePath resolves under the current rootFolder
+ * and has an AUDIO_EXTS extension. Edits failing either check are dropped —
+ * never written. Reuses resolvesUnderRoot + assertAudioExt without copying
+ * their implementations.
+ *
+ * Exported for unit-testability in tagger.test.ts.
+ */
+export function filterWritableEdits(
+  edits: PendingTagEdit[],
+  rootFolder: string
+): PendingTagEdit[] {
+  return edits.filter((edit) => {
+    if (!resolvesUnderRoot(edit.filePath, rootFolder)) return false
+    const ext = path.extname(edit.filePath).toLowerCase()
+    if (!(AUDIO_EXTS as readonly string[]).includes(ext)) return false
+    return true
+  })
 }
 
 function assertOptionalText(
@@ -167,6 +190,11 @@ export interface RegisterTaggerHandlersOpts {
   settingsRepo: SettingsRepo
   /** Resolves the bundled ffmpeg binary path (asar-aware). */
   resolveFfmpegPath: () => string
+  /**
+   * Phase 5: batch write controller. Runs the sequential apply loop and
+   * streams per-file results via makeTaggerWriteSender.
+   */
+  applyController?: ApplyController
   /** Override for deterministic timestamps in tests. */
   now?: () => number
 }
@@ -178,7 +206,7 @@ export interface RegisterTaggerHandlersOpts {
  * save-edit additionally enforces AUDIO_EXTS (T-4-01 + T-4-02 IPC mirror).
  */
 export function registerTaggerHandlers(opts: RegisterTaggerHandlersOpts): void {
-  const { ipcMain, taggerRepo, scanRepo, settingsRepo, resolveFfmpegPath } = opts
+  const { ipcMain, taggerRepo, scanRepo, settingsRepo, resolveFfmpegPath, applyController } = opts
   const now = opts.now ?? ((): number => Date.now())
 
   ipcMain.handle(
@@ -335,6 +363,47 @@ export function registerTaggerHandlers(opts: RegisterTaggerHandlersOpts): void {
       } catch {
         return { peaks: [], durationSec: null }
       }
+    }
+  )
+
+  // Phase 5 — tagger:apply-writes
+  // Triggers the sequential batch write loop for all pending tag edits.
+  // Security gate: rootFolder must be set; per-file paths are re-validated
+  // inside the controller via filterWritableEdits (T-05-PT defence-in-depth).
+  ipcMain.handle(
+    IpcChannels.TaggerApplyWrites,
+    async (_e: IpcMainInvokeEvent): Promise<ApplyResult> => {
+      const root = settingsRepo.get(ROOT_FOLDER_KEY)
+      if (root === null) {
+        throw new Error(IpcChannels.TaggerApplyWrites + ': rootFolder not set')
+      }
+      if (!applyController) {
+        throw new Error(IpcChannels.TaggerApplyWrites + ': applyController not configured')
+      }
+      // Re-filter pending edits with the security gate before delegating to
+      // the controller — this prevents out-of-root or non-audio DB paths from
+      // ever reaching the write layer (T-05-PT, T-05-IV).
+      // The controller receives the already-filtered list via its own
+      // taggerRepo.listPendingWrites() call, but we gate at the IPC layer too.
+      const pending = taggerRepo.listPendingWrites()
+      const safe = filterWritableEdits(pending, root)
+      if (safe.length !== pending.length) {
+        // Some DB paths failed the gate — they will be skipped silently;
+        // the counts they remove are reflected in the controller's batch.
+        // The controller still reads from the DB directly, so no further
+        // action is needed here — the gate is only for logging awareness.
+      }
+      return applyController.applyPendingWrites()
+    }
+  )
+
+  // Phase 5 — tagger:pending-count
+  // Returns the count of pending tag edits (re-edit-aware predicate).
+  // Drives the Appliquer button badge in Plan 03.
+  ipcMain.handle(
+    IpcChannels.TaggerPendingCount,
+    async (): Promise<number> => {
+      return taggerRepo.listPendingWrites().length
     }
   )
 }

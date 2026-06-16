@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { IpcMain } from 'electron'
-import { registerTaggerHandlers } from './tagger'
+import { registerTaggerHandlers, filterWritableEdits } from './tagger'
 import {
   IpcChannels,
   type PendingTagEdit,
@@ -9,6 +9,7 @@ import {
 import type { TaggerRepo } from '../tagger/taggerRepo'
 import type { ScanRepo } from '../scan/scanRepo'
 import type { SettingsRepo } from '../db/settingsRepo'
+import type { ApplyController } from '../tagger/applyController'
 
 type Handler = (e: unknown, ...args: unknown[]) => Promise<unknown>
 
@@ -33,8 +34,16 @@ function makeTaggerRepo(): TaggerRepo {
     listEditsByPaths: vi.fn(() => new Map()),
     getSession: vi.fn(() => null),
     setSession: vi.fn(),
-    topGenres: vi.fn(() => [])
+    topGenres: vi.fn(() => []),
+    listPendingWrites: vi.fn(() => []),
+    markApplied: vi.fn()
   } as unknown as TaggerRepo
+}
+
+function makeApplyController(): ApplyController {
+  return {
+    applyPendingWrites: vi.fn(() => Promise.resolve({ totalWritten: 0, totalFailed: 0 }))
+  }
 }
 
 function makeScanRepo(): ScanRepo {
@@ -73,6 +82,7 @@ describe('registerTaggerHandlers', () => {
   let taggerRepo: TaggerRepo
   let scanRepo: ScanRepo
   let settingsRepo: SettingsRepo
+  let applyController: ApplyController
   const NOW = 1000
 
   beforeEach(() => {
@@ -82,18 +92,20 @@ describe('registerTaggerHandlers', () => {
     taggerRepo = makeTaggerRepo()
     scanRepo = makeScanRepo()
     settingsRepo = makeSettings('/Music')
+    applyController = makeApplyController()
     registerTaggerHandlers({
       ipcMain,
       taggerRepo,
       scanRepo,
       settingsRepo,
       resolveFfmpegPath: () => '/fake/ffmpeg',
+      applyController,
       now: () => NOW
     })
   })
 
-  it('registers all 7 channels', () => {
-    expect(ipcMain.handle).toHaveBeenCalledTimes(7)
+  it('registers all 9 channels (7 Phase-4 + 2 Phase-5)', () => {
+    expect(ipcMain.handle).toHaveBeenCalledTimes(9)
     expect(handlers.has(IpcChannels.TaggerLoadQueue)).toBe(true)
     expect(handlers.has(IpcChannels.TaggerSaveEdit)).toBe(true)
     expect(handlers.has(IpcChannels.TaggerDeleteEdit)).toBe(true)
@@ -101,6 +113,8 @@ describe('registerTaggerHandlers', () => {
     expect(handlers.has(IpcChannels.TaggerSetSession)).toBe(true)
     expect(handlers.has(IpcChannels.TaggerGetGenrePresets)).toBe(true)
     expect(handlers.has(IpcChannels.TaggerGetWaveform)).toBe(true)
+    expect(handlers.has(IpcChannels.TaggerApplyWrites)).toBe(true)
+    expect(handlers.has(IpcChannels.TaggerPendingCount)).toBe(true)
   })
 
   describe('tagger:get-waveform', () => {
@@ -353,5 +367,115 @@ describe('registerTaggerHandlers', () => {
       expect(r.source).toBe('library')
       expect(r.presets).toHaveLength(9)
     })
+  })
+
+  describe('tagger:apply-writes', () => {
+    const h = (): Handler => handlers.get(IpcChannels.TaggerApplyWrites)!
+
+    it('throws when rootFolder is not set', async () => {
+      settingsRepo.get = vi.fn(() => null)
+      await expect(h()({})).rejects.toThrow(/rootFolder not set/)
+    })
+
+    it('delegates to applyController.applyPendingWrites()', async () => {
+      const result = await h()({})
+      expect(applyController.applyPendingWrites).toHaveBeenCalled()
+      expect(result).toEqual({ totalWritten: 0, totalFailed: 0 })
+    })
+
+    it('throws when applyController is not configured', async () => {
+      // Register handlers without an applyController
+      const ipc2 = makeIpc()
+      const handlers2 = ipc2.handlers
+      registerTaggerHandlers({
+        ipcMain: ipc2.ipcMain,
+        taggerRepo,
+        scanRepo,
+        settingsRepo: makeSettings('/Music'),
+        resolveFfmpegPath: () => '/fake/ffmpeg'
+        // no applyController
+      })
+      await expect(
+        handlers2.get(IpcChannels.TaggerApplyWrites)!({})
+      ).rejects.toThrow(/applyController not configured/)
+    })
+  })
+
+  describe('tagger:pending-count', () => {
+    const h = (): Handler => handlers.get(IpcChannels.TaggerPendingCount)!
+
+    it('returns listPendingWrites().length', async () => {
+      const edit: PendingTagEdit = {
+        filePath: '/Music/a.mp3',
+        genre: 'House',
+        bpm: null,
+        key: null,
+        artist: null,
+        title: null,
+        comment: null,
+        rating: null,
+        updatedAt: 1,
+        appliedAt: null
+      }
+      taggerRepo.listPendingWrites = vi.fn(() => [edit])
+      const count = await h()({})
+      expect(count).toBe(1)
+    })
+
+    it('returns 0 when no pending edits', async () => {
+      taggerRepo.listPendingWrites = vi.fn(() => [])
+      const count = await h()({})
+      expect(count).toBe(0)
+    })
+  })
+})
+
+// ─── filterWritableEdits unit tests (T-05-PT security gate) ──────────────────
+
+describe('filterWritableEdits', () => {
+  const ROOT = '/Music'
+
+  function makeEdit(filePath: string): PendingTagEdit {
+    return {
+      filePath,
+      genre: null,
+      bpm: null,
+      key: null,
+      artist: null,
+      title: null,
+      comment: null,
+      rating: null,
+      updatedAt: 1,
+      appliedAt: null
+    }
+  }
+
+  it('passes edits under root with valid audio ext', () => {
+    const edits = [makeEdit('/Music/a.mp3'), makeEdit('/Music/b.m4a')]
+    expect(filterWritableEdits(edits, ROOT)).toHaveLength(2)
+  })
+
+  it('rejects a DB filePath that resolves outside root (T-05-PT path traversal)', () => {
+    const edits = [makeEdit('/etc/passwd'), makeEdit('/Music/ok.mp3')]
+    const safe = filterWritableEdits(edits, ROOT)
+    expect(safe).toHaveLength(1)
+    expect(safe[0].filePath).toBe('/Music/ok.mp3')
+  })
+
+  it('rejects a path traversal attempt via ..' , () => {
+    const edits = [makeEdit('/Music/../etc/shadow')]
+    expect(filterWritableEdits(edits, ROOT)).toHaveLength(0)
+  })
+
+  it('rejects a non-audio extension (T-05-IV)', () => {
+    const edits = [makeEdit('/Music/note.txt'), makeEdit('/Music/ok.mp3')]
+    const safe = filterWritableEdits(edits, ROOT)
+    expect(safe).toHaveLength(1)
+    expect(safe[0].filePath).toBe('/Music/ok.mp3')
+  })
+
+  it('returns empty array when all edits fail the gate', () => {
+    const edits = [makeEdit('/etc/hosts'), makeEdit('/var/log/syslog')]
+    expect(filterWritableEdits(edits, ROOT)).toHaveLength(0)
   })
 })
