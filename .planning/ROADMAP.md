@@ -10,7 +10,7 @@
 - [x] **Phase 2: File Scanning & Library View** - Chunked audio scan, metadata display, tag status indicators, CSV export (completed 2026-05-29)
 - [x] **Phase 3: FFmpeg Conversion Pipeline** - Batch conversion, progress tracking, resume, tag preservation (completed 2026-06-03)
 - [x] **Phase 4: Tagger Core** - Swipe-style tagging queue, audio previews, inline editing, session resume (completed 2026-06-15)
-- [ ] **Phase 5: Tag Writing & Rekordbox Compatibility** - Atomic ID3v2.3/MP4 writes, Rekordbox-compatible fields
+- [x] **Phase 5: Tag Writing & Rekordbox Compatibility** - Atomic ID3v2.3/MP4 writes, Rekordbox-compatible fields (completed 2026-06-16)
 - [ ] **Phase 6: Distribution** - Signed .dmg and .exe installers with bundled FFmpeg
 
 ## Phase Details
@@ -121,7 +121,7 @@
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 05-03-PLAN.md — Appliquer (N) renderer surface: useTaggerStore.applyWrites + ApplyBanner + per-file feedback + Mp3tag/Rekordbox/crash manual checks (TAGS-01/02/03)
+- [x] 05-03-PLAN.md — Appliquer (N) renderer surface: useTaggerStore.applyWrites + ApplyBanner + per-file feedback + Mp3tag/Rekordbox/crash manual checks (TAGS-01/02/03)
 
 ### Phase 6: Distribution
 
@@ -145,5 +145,5 @@
 | 2. File Scanning & Library View | 3/3 | Complete   | 2026-05-29 |
 | 3. FFmpeg Conversion Pipeline | 3/3 | Complete   | 2026-06-03 |
 | 4. Tagger Core | 3/3 | Complete | 2026-06-15 |
-| 5. Tag Writing & Rekordbox Compatibility | 2/3 | In Progress|  |
+| 5. Tag Writing & Rekordbox Compatibility | 3/3 | Complete   | 2026-06-16 |
 | 6. Distribution | 0/? | Not started | - |
