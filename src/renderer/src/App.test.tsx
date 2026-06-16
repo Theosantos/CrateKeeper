@@ -43,7 +43,16 @@ function installCrateKeeperMock(): void {
         .mockResolvedValue({ source: 'defaults', presets: [] }),
       getWaveform: vi
         .fn<CrateKeeperApi['tagger']['getWaveform']>()
-        .mockResolvedValue({ peaks: [], durationSec: null })
+        .mockResolvedValue({ peaks: [], durationSec: null }),
+      applyWrites: vi
+        .fn<CrateKeeperApi['tagger']['applyWrites']>()
+        .mockResolvedValue({ totalWritten: 0, totalFailed: 0 }),
+      getPendingCount: vi
+        .fn<CrateKeeperApi['tagger']['getPendingCount']>()
+        .mockResolvedValue(0),
+      onWriteEvent: vi
+        .fn<CrateKeeperApi['tagger']['onWriteEvent']>()
+        .mockReturnValue(() => {})
     }
   }
   globalThis.window.crateKeeper = api

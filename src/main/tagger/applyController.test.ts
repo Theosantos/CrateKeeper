@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createApplyController, makeTaggerWriteSender } from './applyController'
 import type { TaggerRepo } from './taggerRepo'
-import type { PendingTagEdit } from '../../shared/ipc-types'
+import type { PendingTagEdit, TagWriteEvent } from '../../shared/ipc-types'
+import type { Mp3TagInput, Mp4TagInput } from './tagWriter'
 import type { WebContents } from 'electron'
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -89,16 +90,21 @@ function makeTaggerRepo(edits: PendingTagEdit[] = []): TaggerRepo {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
+// Typed helpers so vi.fn() can be passed to createApplyController without cast noise.
+type WriteFn3 = (filePath: string, input: Mp3TagInput) => Promise<void>
+type WriteFn4 = (filePath: string, input: Mp4TagInput, ffmpegPath: string) => Promise<void>
+type SendFn = (channel: string, payload: TagWriteEvent) => void
+
 describe('createApplyController', () => {
   const NOW = 2000
-  let writeMp3Tags: ReturnType<typeof vi.fn>
-  let writeMp4Tags: ReturnType<typeof vi.fn>
-  let send: ReturnType<typeof vi.fn>
+  let writeMp3Tags: WriteFn3
+  let writeMp4Tags: WriteFn4
+  let send: SendFn & ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    writeMp3Tags = vi.fn(() => Promise.resolve())
-    writeMp4Tags = vi.fn(() => Promise.resolve())
-    send = vi.fn()
+    writeMp3Tags = vi.fn(() => Promise.resolve()) as unknown as WriteFn3
+    writeMp4Tags = vi.fn(() => Promise.resolve()) as unknown as WriteFn4
+    send = vi.fn() as unknown as SendFn & ReturnType<typeof vi.fn>
   })
 
   it('happy path: 1 mp3 + 1 m4a — writes both, markApplied for each, returns correct totals', async () => {
@@ -123,7 +129,7 @@ describe('createApplyController', () => {
 
   it('order: write is attempted BEFORE markApplied', async () => {
     const order: string[] = []
-    writeMp3Tags = vi.fn(() => { order.push('write'); return Promise.resolve() })
+    writeMp3Tags = vi.fn(() => { order.push('write'); return Promise.resolve() }) as unknown as WriteFn3
     const repo = makeTaggerRepo([MP3_EDIT])
     const markApplied = vi.fn(() => { order.push('markApplied') })
     repo.markApplied = markApplied
@@ -145,7 +151,7 @@ describe('createApplyController', () => {
   it('per-file failure: throwing file does not call markApplied for that file', async () => {
     writeMp3Tags = vi.fn(async (fp: string) => {
       if (fp === THROW_EDIT.filePath) throw new Error('write failed')
-    })
+    }) as unknown as WriteFn3
     const repo = makeTaggerRepo([THROW_EDIT])
     const controller = createApplyController({
       taggerRepo: repo,
@@ -164,7 +170,7 @@ describe('createApplyController', () => {
   it('per-file isolation (D-05): batch continues after one failure', async () => {
     writeMp3Tags = vi.fn(async (fp: string) => {
       if (fp === THROW_EDIT.filePath) throw new Error('write failed')
-    })
+    }) as unknown as WriteFn3
     const repo = makeTaggerRepo([MP3_EDIT, THROW_EDIT, OK2_EDIT])
     const controller = createApplyController({
       taggerRepo: repo,
@@ -186,7 +192,7 @@ describe('createApplyController', () => {
   it('events: fileDone ok:true sent for success, fileDone ok:false+error for failure, done at end', async () => {
     writeMp3Tags = vi.fn(async (fp: string) => {
       if (fp === THROW_EDIT.filePath) throw new Error('boom')
-    })
+    }) as unknown as WriteFn3
     const repo = makeTaggerRepo([MP3_EDIT, THROW_EDIT])
     const controller = createApplyController({
       taggerRepo: repo,
@@ -222,7 +228,7 @@ describe('createApplyController', () => {
     let resolvePending!: () => void
     writeMp3Tags = vi.fn(
       () => new Promise<void>((res) => { resolvePending = res })
-    )
+    ) as unknown as WriteFn3
     const repo = makeTaggerRepo([MP3_EDIT])
     const controller = createApplyController({
       taggerRepo: repo,
