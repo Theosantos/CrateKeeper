@@ -113,7 +113,7 @@
 
 **Wave 1**
 
-- [ ] 05-01-PLAN.md — tagWriter (atomic MP3 node-id3 + MP4 ffmpeg, non-destructive, round-trip) + taggerRepo listPendingWrites/markApplied (TAGS-01/02/03)
+- [x] 05-01-PLAN.md — tagWriter (atomic MP3 node-id3 + MP4 ffmpeg, non-destructive, round-trip) + taggerRepo listPendingWrites/markApplied (TAGS-01/02/03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -145,5 +145,5 @@
 | 2. File Scanning & Library View | 3/3 | Complete   | 2026-05-29 |
 | 3. FFmpeg Conversion Pipeline | 3/3 | Complete   | 2026-06-03 |
 | 4. Tagger Core | 3/3 | Complete | 2026-06-15 |
-| 5. Tag Writing & Rekordbox Compatibility | 0/3 | Planned | - |
+| 5. Tag Writing & Rekordbox Compatibility | 1/3 | In Progress|  |
 | 6. Distribution | 0/? | Not started | - |

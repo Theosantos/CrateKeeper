@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-06-15T21:54:48.544Z"
+last_updated: "2026-06-16T09:02:45.288Z"
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 14
-  completed_plans: 11
+  completed_plans: 12
   percent: 67
 ---
 
@@ -16,15 +16,15 @@ progress:
 
 ## Current Status
 
-Phase: 4 — Tagger Core (Complete, 2026-06-15)
-Last updated: 2026-06-15
+Phase: 5 — Tag Writing & Rekordbox Compatibility (In Progress, 2026-06-16) — Plan 01 complete
+Last updated: 2026-06-16
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-05-28)
 
 **Core value:** Permettre à un DJ de passer de "bibliothèque en désordre" à "collection propre et taguée" sans quitter une seule interface.
-**Current focus:** Phase 05 — Tag Writing & Rekordbox Compatibility (next)
+**Current focus:** Phase 05 — tag-writing-rekordbox-compatibility
 
 ## Phase History
 
@@ -66,12 +66,15 @@ Swipe-style tagging queue with audio preview, inline editing, undo, and session 
 - Plan 01-02: predev/prebuild uses electron-rebuild -f -w better-sqlite3 (not electron-builder install-app-deps, which silently no-ops).
 - Plan 01-02: Renderer components consume the Zustand store, never window.djUtils directly (T-1-04 mitigation, grep-enforced).
 - Plan 01-02: Editorial dark-studio direction with :root design tokens — explicit anti-template baseline for the whole renderer.
+- Plan 05-01: Re-edit predicate Option B (`applied_at IS NULL OR updated_at > applied_at`) adopted in `taggerRepo.listPendingWrites` — re-edits after a prior Appliquer pass are automatically re-queued without clearing `applied_at`.
+- Plan 05-01: ffmpeg MP4 output requires explicit `-f ipod`/`-f mp4` because `.ck-tmp` temp suffix is opaque to ffmpeg muxer detection.
 
 ### Known Risks
 
 - FFmpeg asarUnpack misconfiguration can silently break conversion on packaged builds — test packaged build early
-- ID3v2.4 writes will appear broken in Rekordbox — enforce v2.3 at the tag-writing layer
+- ID3v2.4 writes will appear broken in Rekordbox — enforce v2.3 at the tag-writing layer (MITIGATED: node-id3 writes v2.3 natively and unconditionally)
 - Running `npm test` rebuilds better-sqlite3 for Node ABI (137); the next `npm run dev` triggers `predev` → `electron-rebuild` to swap back to Electron ABI (140). If a dev launch ever hits NODE_MODULE_VERSION mismatch, run `npx electron-rebuild -f -w better-sqlite3`.
+- POPM Rekordbox star scale (51/102/153/204/255 → 1-5 stars) needs manual checkpoint in Rekordbox — added to 05-03 plan as checkpoint item.
 
 ### Todos
 
@@ -86,3 +89,7 @@ Swipe-style tagging queue with audio preview, inline editing, undo, and session 
 - **Plan 04-01** (2026-06-05): Tagger main-process backbone — 6 IPC channels (tagger:*), pending_tag_edits + tagger_session SQLite tables, cratekeeper:// custom protocol with folder + AUDIO_EXTS gates, mergeGenrePresets helper, scanRepo.findLatestScan/listIncompleteFiles, autoplayPolicy unlock. 7 commits. 351 tests green (64 new). Deviations: [Rule 2] additive `scanned_files.genre TEXT` column (Phase 2 schema was missing it for topGenres). See `.planning/phases/04-tagger-core/04-01-SUMMARY.md`.
 - **Plan 04-02** (2026-06-05): Tagger renderer card UX — useTaggerStore (queue + dirty edits + presets + mute + Keep/Skip), TaggerCard composite (filename + chips + AudioPreview + ArtistTitleSplit + 6 editable fields + RatingStars + GenrePresetBar + action row), useTaggerKeyboard with input-focus gate, AudioPreview cratekeeper:// + 30s loop + AIFF fallback, transform-only slide animation orchestrated by TaggerView, CSP media-src extension. 5 commits. 426 tests green (75 new). Marks TAGG-02..08 complete. Deviations: [Rule 3] jsdom HTMLMediaElement.play guard + contentEditable focus test setup + lifted slide orchestration to TaggerView (planner-discretion path). Annuler button rendered disabled (Plan 04-03 owns undo). See `.planning/phases/04-tagger-core/04-02-SUMMARY.md`.
 - **Plan 04-03** (2026-06-05): Tagger session resume + 1-level undo — useTaggerStore.lastAction descriptor + undo action (routes keep-with-prior / keep-no-prior / skip) + scanId on state; TaggerView mount-time getSession AFTER loadQueue with identity-by-path restore + library-change fallback to 0; 500ms debounced tagger:set-session + beforeunload synchronous flush (Pitfall 1); Cmd-Z + Annuler button wired through reversed-direction slide. End-to-end RTL integration test covers the full flow. 3 commits. 452 tests green (26 new). Marks TAGG-09 + TAGG-10 complete; closes Phase 4 surface pending end-of-phase human-verify checkpoint. Deviations: [Rule 3] swapped fake-timer/advanceTimersByTimeAsync for waitFor({timeout:1500}) in 3 debounce tests (fake timers hang waitFor in jsdom); exact-match getByLabelText('Genre') in E2E test to disambiguate from "Genre détecté" chip. See `.planning/phases/04-tagger-core/04-03-SUMMARY.md`.
+
+### Phase 5 — Tag Writing & Rekordbox Compatibility (In Progress, 2026-06-16)
+
+- **Plan 05-01** (2026-06-16, ~7 min): Tag writer engine — node-id3@^0.2.9 installed; `test-tagged.mp3` fixture; `tagWriter.ts` (writeMp3Tags atomic ID3v2.3 + writeMp4Tags tmpo-atom ffmpeg remux + getWriteStrategy + starToPopmByte TAGG-07 mapping); `taggerRepo` extended with `listPendingWrites` (re-edit predicate Option B) and `markApplied` (per-file). 6 commits. 507 tests green (28 new). Marks TAGS-01, TAGS-02, TAGS-03 complete. Deviations: [Rule 1] ffmpeg explicit -f ipod/mp4 (muxer cannot infer from .ck-tmp); [Rule 1] removed unreachable `result===false` check (NodeID3.update returns true|Error); [Rule 1] type-asserted POPM native frame value for tsc. See `.planning/phases/05-tag-writing-rekordbox-compatibility/05-01-SUMMARY.md`.
