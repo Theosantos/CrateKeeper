@@ -165,14 +165,14 @@ describe('useConversionStore', () => {
     expect(s.conversionId).toBe('conv-A')
   })
 
-  it('startBatch persists selectedPreset to settings.conversion.lastPreset (JSON)', async () => {
+  it('startBatch does NOT persist a last preset (page always defaults to MP3 320)', async () => {
     const api = installMock('conv-A')
     useConversionStore.getState().seedFilePaths(['/m/a.mp3'])
     await useConversionStore.getState().startBatch('/m')
 
-    expect(api.setSetting).toHaveBeenCalledWith(
+    expect(api.setSetting).not.toHaveBeenCalledWith(
       'conversion.lastPreset',
-      JSON.stringify(MP3_320)
+      expect.anything()
     )
   })
 

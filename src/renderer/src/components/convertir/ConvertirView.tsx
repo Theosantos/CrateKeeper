@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import type { Preset } from '../../../../shared/ipc-types'
 import { useAppStore } from '../../store/useAppStore'
 import { useConversionStore } from '../../store/useConversionStore'
 import { PresetSelector } from './PresetSelector'
@@ -13,20 +12,9 @@ import { ResumeBanner } from './ResumeBanner'
  * Lifecycle:
  *  - on mount: subscribe to crateKeeper.conversion.onEvent and clean up on
  *    unmount (useEffect with returned closure)
- *  - on mount: one-shot load of conversion.lastPreset from settings;
- *    if present, apply via setPreset (LOCKED persistence)
+ *  - the format always defaults to MP3 320 (D-CONV-FORMAT); we no longer
+ *    restore a previously-used preset on mount.
  */
-
-function parseSavedPreset(raw: string | null): Preset | null {
-  if (raw === null) return null
-  try {
-    const parsed = JSON.parse(raw) as Preset
-    if (typeof parsed.slug !== 'string') return null
-    return parsed
-  } catch {
-    return null
-  }
-}
 
 export function ConvertirView(): React.JSX.Element {
   const pendingFilePaths = useConversionStore((s) => s.pendingFilePaths)
@@ -47,21 +35,6 @@ export function ConvertirView(): React.JSX.Element {
   // rows BEFORE the window was created, so a single fetch is sufficient.
   useEffect(() => {
     void useConversionStore.getState().checkResumable()
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      const raw = await window.crateKeeper.getSetting('conversion.lastPreset')
-      if (cancelled) return
-      const saved = parseSavedPreset(raw)
-      if (saved !== null) {
-        useConversionStore.getState().setPreset(saved)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
   }, [])
 
   const isRunning = status === 'running'
