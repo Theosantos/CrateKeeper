@@ -8,7 +8,7 @@ export function AnalyserView(): React.JSX.Element {
   return (
     <section className="view view--analyser" aria-labelledby="view-analyser-heading">
       <header className="view__header">
-        <p className="view__eyebrow">Phase 2</p>
+        <p className="view__eyebrow">01 · Bibliothèque</p>
         <h2 id="view-analyser-heading" className="view__title">
           Analyser
         </h2>

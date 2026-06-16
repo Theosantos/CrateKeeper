@@ -153,7 +153,7 @@ export function TaggerView(): React.JSX.Element {
     return (
       <section className="view" aria-labelledby="view-tagger-heading">
         <header className="view__header">
-          <p className="view__eyebrow">Phase 4</p>
+          <p className="view__eyebrow">03 · Catégorisation</p>
           <h2 id="view-tagger-heading" className="view__title">
             Tagger
           </h2>
@@ -167,7 +167,7 @@ export function TaggerView(): React.JSX.Element {
     return (
       <section className="view" aria-labelledby="view-tagger-heading">
         <header className="view__header">
-          <p className="view__eyebrow">Phase 4</p>
+          <p className="view__eyebrow">03 · Catégorisation</p>
           <h2 id="view-tagger-heading" className="view__title">
             Tagger
           </h2>
@@ -183,7 +183,7 @@ export function TaggerView(): React.JSX.Element {
     return (
       <section className="view" aria-labelledby="view-tagger-heading">
         <header className="view__header">
-          <p className="view__eyebrow">Phase 4</p>
+          <p className="view__eyebrow">03 · Catégorisation</p>
           <h2 id="view-tagger-heading" className="view__title">
             Tagger
           </h2>
