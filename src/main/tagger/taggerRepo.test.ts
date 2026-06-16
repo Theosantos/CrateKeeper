@@ -211,5 +211,75 @@ describe('taggerRepo', () => {
       )
       expect(offending).toBeNull()
     })
+
+    it('source contains the literal re-edit predicate (applied_at IS NULL OR updated_at > applied_at)', () => {
+      expect(TAGGER_REPO_SOURCE).toContain('applied_at IS NULL OR updated_at > applied_at')
+    })
+  })
+
+  // ── Phase 5: listPendingWrites + markApplied ────────────────────────────────
+
+  describe('listPendingWrites (Phase 5 — re-edit predicate)', () => {
+    it('includes a row with applied_at=NULL', () => {
+      repo.upsertEdit(edit({ filePath: '/M/a.mp3' }), 1000)
+      const pending = repo.listPendingWrites()
+      expect(pending.map((p) => p.filePath)).toContain('/M/a.mp3')
+    })
+
+    it('includes a re-edited row (updated_at > applied_at)', () => {
+      // Simulate: file written at T=2000, then re-edited at T=3000
+      repo.upsertEdit(edit({ filePath: '/M/a.mp3' }), 1000)
+      db.prepare('UPDATE pending_tag_edits SET applied_at = 2000 WHERE file_path = ?').run(
+        '/M/a.mp3'
+      )
+      // Re-edit bumps updated_at to 3000
+      repo.upsertEdit(edit({ filePath: '/M/a.mp3', genre: 'Techno' }), 3000)
+      const pending = repo.listPendingWrites()
+      expect(pending.map((p) => p.filePath)).toContain('/M/a.mp3')
+    })
+
+    it('excludes a row that was written AFTER its last edit (applied_at >= updated_at)', () => {
+      repo.upsertEdit(edit({ filePath: '/M/a.mp3' }), 1000) // updated_at = 1000
+      // applied_at=2000 > updated_at=1000 → already written, not re-edited
+      db.prepare('UPDATE pending_tag_edits SET applied_at = 2000 WHERE file_path = ?').run(
+        '/M/a.mp3'
+      )
+      const pending = repo.listPendingWrites()
+      expect(pending.map((p) => p.filePath)).not.toContain('/M/a.mp3')
+    })
+  })
+
+  describe('markApplied (Phase 5 — per-file)', () => {
+    it('sets applied_at only for the named file_path (D-05)', () => {
+      repo.upsertEdit(edit({ filePath: '/M/a.mp3' }), 1000)
+      repo.upsertEdit(edit({ filePath: '/M/b.mp3' }), 1000)
+
+      repo.markApplied('/M/a.mp3', 5000)
+
+      const a = repo.getEdit('/M/a.mp3')!
+      const b = repo.getEdit('/M/b.mp3')!
+      expect(a.appliedAt).toBe(5000)
+      expect(b.appliedAt).toBeNull() // b must be unchanged
+    })
+
+    it('after markApplied a row is no longer in listPendingWrites', () => {
+      repo.upsertEdit(edit({ filePath: '/M/a.mp3' }), 1000)
+      repo.markApplied('/M/a.mp3', 5000)
+      // applied_at=5000 > updated_at=1000 → written after last edit → excluded
+      const pending = repo.listPendingWrites()
+      expect(pending.map((p) => p.filePath)).not.toContain('/M/a.mp3')
+    })
+
+    it('per-file failure leaves untouched rows pending (D-05)', () => {
+      repo.upsertEdit(edit({ filePath: '/M/a.mp3' }), 1000)
+      repo.upsertEdit(edit({ filePath: '/M/b.mp3' }), 1000)
+
+      // Only mark a applied; b stays pending
+      repo.markApplied('/M/a.mp3', 5000)
+
+      const pending = repo.listPendingWrites()
+      expect(pending.map((p) => p.filePath)).not.toContain('/M/a.mp3')
+      expect(pending.map((p) => p.filePath)).toContain('/M/b.mp3')
+    })
   })
 })
