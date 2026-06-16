@@ -44,9 +44,7 @@ function installMockBridge(): void {
       getSession: vi.fn(),
       setSession: vi.fn(),
       getGenrePresets: vi.fn(),
-      getWaveform: vi
-        .fn()
-        .mockResolvedValue({ peaks: [], durationSec: null })
+      getWaveform: vi.fn().mockResolvedValue({ peaks: [], durationSec: null })
     } as unknown as CrateKeeperApi['tagger']
   }
 }
@@ -83,9 +81,7 @@ describe('TaggerCard', () => {
     const f = makeFile('/Music/House/track.mp3')
     seedStore(f)
     render(<TaggerCard file={f} onKeep={() => {}} onSkip={() => {}} />)
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(
-      'track.mp3'
-    )
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('track.mp3')
     expect(screen.getByText('/Music/House')).toBeInTheDocument()
   })
 
@@ -127,12 +123,10 @@ describe('TaggerCard', () => {
     const artistLabel = screen.getByText('Artiste').closest('label')!
     const input = artistLabel.querySelector('input')!
     fireEvent.change(input, { target: { value: 'Daft Punk' } })
-    expect(useTaggerStore.getState().dirtyEdits.get('/m/a.mp3')?.artist).toBe(
-      'Daft Punk'
-    )
+    expect(useTaggerStore.getState().dirtyEdits.get('/m/a.mp3')?.artist).toBe('Daft Punk')
   })
 
-it('GenrePresetBar receives store genrePresets and applies on click', () => {
+  it('GenrePresetBar receives store genrePresets and applies on click', () => {
     const f = makeFile('/m/a.mp3')
     seedStore(f)
     render(<TaggerCard file={f} onKeep={() => {}} onSkip={() => {}} />)
@@ -140,9 +134,56 @@ it('GenrePresetBar receives store genrePresets and applies on click', () => {
     const btns = within(toolbar).getAllByRole('button')
     expect(btns).toHaveLength(9)
     fireEvent.click(btns[1]) // slot 2 → 'Techno'
-    expect(useTaggerStore.getState().dirtyEdits.get('/m/a.mp3')?.genre).toBe(
-      'Techno'
-    )
+    expect(useTaggerStore.getState().dirtyEdits.get('/m/a.mp3')?.genre).toBe('Techno')
+  })
+
+  it('defaults the Titre field to the filename without extension', () => {
+    const f = makeFile('/Music/House/Midnight City.mp3')
+    seedStore(f)
+    render(<TaggerCard file={f} onKeep={() => {}} onSkip={() => {}} />)
+    const titleInput = screen.getByText('Titre').closest('label')!.querySelector('input')!
+    expect(titleInput).toHaveValue('Midnight City')
+    // Seeded as a real dirty edit so a Keep persists it.
+    expect(useTaggerStore.getState().dirtyEdits.get(f.path)?.title).toBe('Midnight City')
+  })
+
+  it('does NOT default Titre when an Artist/Title split is proposed', () => {
+    const f = makeFile('/m/Daft Punk - Around The World.mp3')
+    seedStore(f)
+    render(<TaggerCard file={f} onKeep={() => {}} onSkip={() => {}} />)
+    const titleInput = screen.getByText('Titre').closest('label')!.querySelector('input')!
+    expect(titleInput).toHaveValue('')
+    // The split suggestion is shown instead; no title is pre-seeded.
+    expect(screen.getByRole('region', { name: 'Suggestion Artiste / Titre' })).toBeInTheDocument()
+    expect(useTaggerStore.getState().dirtyEdits.has(f.path)).toBe(false)
+  })
+
+  it('does NOT override an existing saved title with the filename default', () => {
+    const f = makeFile('/m/track.mp3')
+    seedStore(f)
+    useTaggerStore.setState({
+      pendingEdits: new Map([
+        [
+          f.path,
+          {
+            filePath: f.path,
+            genre: null,
+            bpm: null,
+            key: null,
+            artist: null,
+            title: 'Real Title',
+            comment: null,
+            rating: null,
+            updatedAt: 1,
+            appliedAt: null
+          }
+        ]
+      ])
+    })
+    render(<TaggerCard file={f} onKeep={() => {}} onSkip={() => {}} />)
+    const titleInput = screen.getByText('Titre').closest('label')!.querySelector('input')!
+    expect(titleInput).toHaveValue('Real Title')
+    expect(useTaggerStore.getState().dirtyEdits.has(f.path)).toBe(false)
   })
 
   it('ArtistTitleSplit appears when artist empty + title has separator', () => {
@@ -151,9 +192,7 @@ it('GenrePresetBar receives store genrePresets and applies on click', () => {
     // Pre-seed dirtyEdits with title from filename so ArtistTitleSplit sees it
     useTaggerStore.getState().setDirtyEdit('title', 'Daft Punk - Around The World')
     render(<TaggerCard file={f} onKeep={() => {}} onSkip={() => {}} />)
-    expect(
-      screen.getByRole('region', { name: 'Suggestion Artiste / Titre' })
-    ).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Suggestion Artiste / Titre' })).toBeInTheDocument()
   })
 
   it('RatingStars wired to setRating', () => {
@@ -189,9 +228,7 @@ it('GenrePresetBar receives store genrePresets and applies on click', () => {
   it('card root element has className tagger-card', () => {
     const f = makeFile('/m/a.mp3')
     seedStore(f)
-    const { container } = render(
-      <TaggerCard file={f} onKeep={() => {}} onSkip={() => {}} />
-    )
+    const { container } = render(<TaggerCard file={f} onKeep={() => {}} onSkip={() => {}} />)
     expect(container.querySelector('.tagger-card')).not.toBeNull()
   })
 })
@@ -201,9 +238,7 @@ describe('tagger.css (file content)', () => {
   const css = readFileSync(cssPath, 'utf8')
 
   it('does not declare any new --color-* tokens', () => {
-    const declarations = css
-      .split('\n')
-      .filter((l) => /^\s*--color-[\w-]+\s*:/.test(l))
+    const declarations = css.split('\n').filter((l) => /^\s*--color-[\w-]+\s*:/.test(l))
     expect(declarations).toEqual([])
   })
 
@@ -226,10 +261,7 @@ describe('tagger.css (file content)', () => {
 
 describe('renderer/index.html CSP', () => {
   it('includes media-src self cratekeeper:', () => {
-    const indexHtml = readFileSync(
-      join(__dirname, '..', '..', '..', 'index.html'),
-      'utf8'
-    )
+    const indexHtml = readFileSync(join(__dirname, '..', '..', '..', 'index.html'), 'utf8')
     expect(indexHtml).toContain("media-src 'self' cratekeeper:")
   })
 })
