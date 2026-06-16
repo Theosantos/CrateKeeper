@@ -43,10 +43,13 @@
   --space-2xl: 5rem;
   --space-section: clamp(3rem, 2rem + 4vw, 6rem);
 
-  /* Motion */
+  /* Motion — strong custom easings (per emil-design-eng). Built-in CSS easings
+   * are too weak; these give UI motion intentional punch. Never ease-in on UI. */
   --duration-fast: 140ms;
   --duration-normal: 260ms;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 
   /* Lines */
   --radius-sm: 4px;
@@ -233,7 +236,7 @@ code {
 }
 
 .tool-nav__button:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .tool-nav__button.is-active {
@@ -301,7 +304,7 @@ code {
 }
 
 .folder-picker__button:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .folder-picker__path {
@@ -415,6 +418,37 @@ code {
   line-height: 1.45;
   margin: 0;
   max-width: 56ch;
+}
+
+/* Page-load choreography — the view header rises in a short stagger on mount
+ * (and on every tool switch, since views re-mount keyed by activeTool). One
+ * orchestrated reveal reads as far more intentional than scattered micro-
+ * animations. Compositor-friendly (transform + opacity only). */
+@keyframes view-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.view__header > * {
+  animation: view-rise var(--duration-normal) var(--ease-out) both;
+}
+
+.view__eyebrow {
+  animation-delay: 0ms;
+}
+
+.view__title {
+  animation-delay: 70ms;
+}
+
+.view__lede {
+  animation-delay: 140ms;
 }
 
 .view__placeholder {
@@ -577,7 +611,7 @@ code {
 }
 
 .scan-toolbar__button:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .scan-toolbar__hint {
@@ -872,5 +906,21 @@ code {
   .folder-picker__path {
     align-items: flex-start;
     text-align: left;
+  }
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────────── */
+/* Respect prefers-reduced-motion: collapse movement/animation to near-instant.
+ * The Tagger card slide relies on transitionend, which won't fire when motion
+ * is off — TaggerView.runWithSlide races it against a timeout so Keep/Skip
+ * still advances. (a11y: ui-ux-pro-max #1; emil-design-eng accessibility.) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

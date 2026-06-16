@@ -107,11 +107,22 @@ export function TaggerView(): React.JSX.Element {
           resolve()
           return
         }
-        const onEnd = (): void => {
+        // transitionend may never fire — an interrupted transition, a no-op
+        // property change, or prefers-reduced-motion (instant). Race it against
+        // a fallback so Keep/Skip always runs and the card never hangs
+        // mid-slide. The slide is 250ms; 400ms covers it with headroom.
+        const SLIDE_FALLBACK_MS = 400
+        let settled = false
+        const finish = (): void => {
+          if (settled) return
+          settled = true
           el.removeEventListener('transitionend', onEnd)
+          clearTimeout(timer)
           resolve()
         }
+        const onEnd = (): void => finish()
         el.addEventListener('transitionend', onEnd)
+        const timer = window.setTimeout(finish, SLIDE_FALLBACK_MS)
       })
       await action()
       setExitDirection(null)

@@ -40,7 +40,7 @@
 }
 
 .convertir__back:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .convertir__body {
@@ -117,7 +117,7 @@
 }
 
 .convertir__action:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .convertir__error {
@@ -257,7 +257,7 @@
 }
 
 .resume-banner__action:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 /* ── Preset selector ──────────────────────────────────────────────────────── */
