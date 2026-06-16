@@ -450,16 +450,12 @@ code {
   animation: view-rise var(--duration-normal) var(--ease-out) both;
 }
 
-.view__eyebrow {
+.view__title {
   animation-delay: 0ms;
 }
 
-.view__title {
-  animation-delay: 70ms;
-}
-
 .view__lede {
-  animation-delay: 140ms;
+  animation-delay: 90ms;
 }
 
 .view__placeholder {

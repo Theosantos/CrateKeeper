@@ -97,12 +97,16 @@ export function ConvertirView(): React.JSX.Element {
   return (
     <section className="view view--convertir" aria-labelledby="view-convertir-heading">
       <header className="view__header convertir__header">
-        <p className="view__eyebrow">02 · Conversion</p>
-        <h2 id="view-convertir-heading" className="view__title">
-          {count === 0
-            ? 'Convertir'
-            : `Convertir ${count} fichier${count > 1 ? 's' : ''}`}
-        </h2>
+        <div className="convertir__header-text">
+          <h2 id="view-convertir-heading" className="view__title">
+            {count === 0
+              ? 'Convertir'
+              : `Convertir ${count} fichier${count > 1 ? 's' : ''}`}
+          </h2>
+          <p className="view__lede">
+            Choisis un format de sortie et convertis ta sélection en un lot.
+          </p>
+        </div>
         <button
           type="button"
           className="convertir__back"
