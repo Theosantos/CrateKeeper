@@ -29,7 +29,9 @@ findings:
   warning: 7
   info: 5
   total: 15
-status: issues_found
+status: blockers_resolved
+blockers_resolved_in: 58e6ea5
+resolution_note: "All 3 BLOCKERs (CR-01, CR-02, CR-03) fixed with regression tests in 58e6ea5. WR-* warnings and IN-* info remain open (deferred by user — blockers-only scope)."
 ---
 
 # Phase 5: Code Review Report
@@ -37,7 +39,22 @@ status: issues_found
 **Reviewed:** 2026-06-16
 **Depth:** standard
 **Files Reviewed:** 21
-**Status:** issues_found
+**Status:** blockers_resolved (3 BLOCKERs fixed in `58e6ea5`; warnings/info deferred)
+
+> **Resolution (2026-06-16, commit `58e6ea5`):**
+> - **CR-01** — fixed: the apply-writes IPC handler now passes only
+>   `filterWritableEdits`-approved rows to the controller, which takes a
+>   pre-validated edit list instead of re-reading the DB raw. Regression test
+>   added (load-bearing filter, T-05-PT / T-05-IV).
+> - **CR-02** — fixed: control characters rejected at the IPC boundary
+>   (`assertOptionalText`) and stripped from ffmpeg `-metadata` values
+>   (`ffmpegMetaValue`). Regression test added.
+> - **CR-03** — fixed: single-active guard is now instance-scoped and released
+>   via `finally`. Regression test added (cross-instance isolation).
+>
+> Warnings (WR-01..07) and Info (IN-01..05) were intentionally deferred to a
+> follow-up (blockers-only scope). WR-03 (main-thread blocking) and WR-02/WR-04
+> (count/UI reconciliation) are the highest-value remaining items.
 
 ## Summary
 
