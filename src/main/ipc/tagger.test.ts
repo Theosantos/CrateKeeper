@@ -1,11 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { IpcMain } from 'electron'
 import { registerTaggerHandlers, filterWritableEdits } from './tagger'
-import {
-  IpcChannels,
-  type PendingTagEdit,
-  type ScannedFile
-} from '../../shared/ipc-types'
+import { IpcChannels, type PendingTagEdit, type ScannedFile } from '../../shared/ipc-types'
 import type { TaggerRepo } from '../tagger/taggerRepo'
 import type { ScanRepo } from '../scan/scanRepo'
 import type { SettingsRepo } from '../db/settingsRepo'
@@ -120,29 +116,17 @@ describe('registerTaggerHandlers', () => {
   describe('tagger:get-waveform', () => {
     it('returns empty when no rootFolder', async () => {
       settingsRepo.get = vi.fn(() => null)
-      const r = await handlers.get(IpcChannels.TaggerGetWaveform)!(
-        {},
-        '/Music/a.mp3',
-        100
-      )
+      const r = await handlers.get(IpcChannels.TaggerGetWaveform)!({}, '/Music/a.mp3', 100)
       expect(r).toEqual({ peaks: [], durationSec: null })
     })
 
     it('returns empty for a path outside rootFolder (no ffmpeg spawn)', async () => {
-      const r = await handlers.get(IpcChannels.TaggerGetWaveform)!(
-        {},
-        '/etc/passwd',
-        100
-      )
+      const r = await handlers.get(IpcChannels.TaggerGetWaveform)!({}, '/etc/passwd', 100)
       expect(r).toEqual({ peaks: [], durationSec: null })
     })
 
     it('returns empty for a non-audio extension', async () => {
-      const r = await handlers.get(IpcChannels.TaggerGetWaveform)!(
-        {},
-        '/Music/note.txt',
-        100
-      )
+      const r = await handlers.get(IpcChannels.TaggerGetWaveform)!({}, '/Music/note.txt', 100)
       expect(r).toEqual({ peaks: [], durationSec: null })
     })
   })
@@ -215,45 +199,41 @@ describe('registerTaggerHandlers', () => {
     })
 
     it('rejects filePath not under rootFolder (T-4-01)', async () => {
-      await expect(
-        h()({}, { filePath: '/etc/passwd', rating: 5 })
-      ).rejects.toThrow(/not under rootFolder/i)
-    })
-
-    it('rejects extension not in AUDIO_EXTS (T-4-02)', async () => {
-      await expect(h()({}, { filePath: '/Music/note.txt' })).rejects.toThrow(
-        /AUDIO_EXTS/
+      await expect(h()({}, { filePath: '/etc/passwd', rating: 5 })).rejects.toThrow(
+        /not under rootFolder/i
       )
     })
 
+    it('rejects extension not in AUDIO_EXTS (T-4-02)', async () => {
+      await expect(h()({}, { filePath: '/Music/note.txt' })).rejects.toThrow(/AUDIO_EXTS/)
+    })
+
     it('rejects rating=6 (T-4-04)', async () => {
-      await expect(
-        h()({}, { filePath: '/Music/a.mp3', rating: 6 })
-      ).rejects.toThrow(/rating/)
+      await expect(h()({}, { filePath: '/Music/a.mp3', rating: 6 })).rejects.toThrow(/rating/)
     })
 
     it('rejects rating=0 (T-4-04)', async () => {
-      await expect(
-        h()({}, { filePath: '/Music/a.mp3', rating: 0 })
-      ).rejects.toThrow(/rating/)
+      await expect(h()({}, { filePath: '/Music/a.mp3', rating: 0 })).rejects.toThrow(/rating/)
     })
 
     it('rejects bpm=500 (T-4-05)', async () => {
-      await expect(
-        h()({}, { filePath: '/Music/a.mp3', bpm: 500 })
-      ).rejects.toThrow(/bpm/)
+      await expect(h()({}, { filePath: '/Music/a.mp3', bpm: 500 })).rejects.toThrow(/bpm/)
     })
 
     it('rejects bpm non-integer (T-4-05)', async () => {
-      await expect(
-        h()({}, { filePath: '/Music/a.mp3', bpm: 128.5 })
-      ).rejects.toThrow(/bpm/)
+      await expect(h()({}, { filePath: '/Music/a.mp3', bpm: 128.5 })).rejects.toThrow(/bpm/)
     })
 
     it('rejects genre longer than 500 chars (T-4-03)', async () => {
+      await expect(h()({}, { filePath: '/Music/a.mp3', genre: 'a'.repeat(501) })).rejects.toThrow(
+        /genre/
+      )
+    })
+
+    it('CR-02: rejects control characters in text fields (T-05-IV)', async () => {
       await expect(
-        h()({}, { filePath: '/Music/a.mp3', genre: 'a'.repeat(501) })
-      ).rejects.toThrow(/genre/)
+        h()({}, { filePath: '/Music/a.mp3', artist: 'evil\ninjection' })
+      ).rejects.toThrow(/control characters/)
     })
 
     it('valid payload calls upsertEdit with normalised values', async () => {
@@ -313,9 +293,9 @@ describe('registerTaggerHandlers', () => {
     })
 
     it('rejects non-null currentFilePath outside rootFolder', async () => {
-      await expect(
-        h()({}, { currentFilePath: '/etc/passwd', scanId: null })
-      ).rejects.toThrow(/not under rootFolder/i)
+      await expect(h()({}, { currentFilePath: '/etc/passwd', scanId: null })).rejects.toThrow(
+        /not under rootFolder/i
+      )
     })
 
     it('writes session with rootFolder + values', async () => {
@@ -383,6 +363,35 @@ describe('registerTaggerHandlers', () => {
       expect(result).toEqual({ totalWritten: 0, totalFailed: 0 })
     })
 
+    it('CR-01: passes ONLY filterWritableEdits-approved rows to the controller (T-05-PT / T-05-IV)', async () => {
+      const mk = (filePath: string): PendingTagEdit => ({
+        filePath,
+        genre: null,
+        bpm: null,
+        key: null,
+        artist: null,
+        title: null,
+        comment: null,
+        rating: null,
+        updatedAt: 1,
+        appliedAt: null
+      })
+      // rootFolder is '/Music' (makeSettings in beforeEach).
+      taggerRepo.listPendingWrites = vi.fn(() => [
+        mk('/Music/ok.mp3'), // under root + audio ext → kept
+        mk('/etc/evil.mp3'), // outside root → dropped (T-05-PT)
+        mk('/Music/notes.txt') // non-audio ext → dropped (T-05-IV)
+      ])
+
+      await h()({})
+
+      const calls = (applyController.applyPendingWrites as unknown as ReturnType<typeof vi.fn>).mock
+        .calls
+      const passed = calls[0][0] as PendingTagEdit[]
+      expect(passed).toHaveLength(1)
+      expect(passed[0].filePath).toBe('/Music/ok.mp3')
+    })
+
     it('throws when applyController is not configured', async () => {
       // Register handlers without an applyController
       const ipc2 = makeIpc()
@@ -395,9 +404,9 @@ describe('registerTaggerHandlers', () => {
         resolveFfmpegPath: () => '/fake/ffmpeg'
         // no applyController
       })
-      await expect(
-        handlers2.get(IpcChannels.TaggerApplyWrites)!({})
-      ).rejects.toThrow(/applyController not configured/)
+      await expect(handlers2.get(IpcChannels.TaggerApplyWrites)!({})).rejects.toThrow(
+        /applyController not configured/
+      )
     })
   })
 
@@ -462,7 +471,7 @@ describe('filterWritableEdits', () => {
     expect(safe[0].filePath).toBe('/Music/ok.mp3')
   })
 
-  it('rejects a path traversal attempt via ..' , () => {
+  it('rejects a path traversal attempt via ..', () => {
     const edits = [makeEdit('/Music/../etc/shadow')]
     expect(filterWritableEdits(edits, ROOT)).toHaveLength(0)
   })

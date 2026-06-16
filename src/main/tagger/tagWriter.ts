@@ -54,6 +54,20 @@ const STAR_TO_POPM: Record<number, number> = {
 
 const POPM_EMAIL = 'rating@cratekeeper'
 
+// ─── Internal helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Defence-in-depth (CR-02): strip C0 control characters / DEL from a metadata
+ * value before it becomes an ffmpeg `-metadata key=value` argv token. The IPC
+ * layer already rejects these (assertOptionalText), but a poisoned DB row or a
+ * non-IPC caller must never inject newlines / control bytes into ffmpeg's
+ * metadata parser. Printable punctuation is preserved (legitimate tag text).
+ */
+function ffmpegMetaValue(v: string): string {
+  // eslint-disable-next-line no-control-regex
+  return v.replace(/[\u0000-\u001F\u007F]/g, '')
+}
+
 // ─── Public helpers ───────────────────────────────────────────────────────────
 
 /**
@@ -153,11 +167,12 @@ export async function writeMp4Tags(
 
   // Build -metadata flags — only non-null fields (D-04)
   const metaFlags: string[] = []
-  if (input.artist != null) metaFlags.push('-metadata', `artist=${input.artist}`)
-  if (input.title != null) metaFlags.push('-metadata', `title=${input.title}`)
-  if (input.genre != null) metaFlags.push('-metadata', `genre=${input.genre}`)
-  if (input.bpm != null) metaFlags.push('-metadata', `tmpo=${input.bpm}`) // KEY: tmpo, not BPM
-  if (input.comment != null) metaFlags.push('-metadata', `comment=${input.comment}`)
+  if (input.artist != null) metaFlags.push('-metadata', `artist=${ffmpegMetaValue(input.artist)}`)
+  if (input.title != null) metaFlags.push('-metadata', `title=${ffmpegMetaValue(input.title)}`)
+  if (input.genre != null) metaFlags.push('-metadata', `genre=${ffmpegMetaValue(input.genre)}`)
+  if (input.bpm != null) metaFlags.push('-metadata', `tmpo=${input.bpm}`) // KEY: tmpo, not BPM (numeric, no escaping)
+  if (input.comment != null)
+    metaFlags.push('-metadata', `comment=${ffmpegMetaValue(input.comment)}`)
 
   // Determine the container format from the source file extension.
   // Required because the temp file uses a .ck-tmp suffix and ffmpeg cannot
@@ -168,11 +183,15 @@ export async function writeMp4Tags(
   // -map_metadata 0 BEFORE -metadata overrides: preserves all existing atoms first
   const args = [
     '-y',
-    '-i', filePath,
-    '-c', 'copy',
-    '-map_metadata', '0',
+    '-i',
+    filePath,
+    '-c',
+    'copy',
+    '-map_metadata',
+    '0',
     ...metaFlags,
-    '-f', outputFormat,
+    '-f',
+    outputFormat,
     tmp
   ]
 

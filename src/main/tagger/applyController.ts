@@ -8,17 +8,21 @@
  *   makeTaggerWriteSender   — push-channel sender for main→renderer events
  *
  * Design:
- * - Module-level `isRunning` guard prevents concurrent batch runs (T-05-TMP).
+ * - Instance-scoped `isRunning` guard prevents concurrent batch runs on a
+ *   controller (T-05-TMP); each controller owns its own flag (CR-03).
  * - Sequential per-file loop (one file at a time) — lighter than conversion
  *   parallelism and required for deterministic temp-name safety.
  * - Per-file try/catch: a failure leaves applied_at NULL so the file is
  *   retryable on the next Appliquer pass (D-05 non-destructive recovery).
+ * - The caller passes a PRE-FILTERED edit list — the IPC layer is the security
+ *   boundary (filterWritableEdits); the controller never re-reads the DB raw
+ *   (CR-01: keeps the path/extension gate load-bearing).
  * - All deps injected — never import tagWriter/taggerRepo directly (mirrors
  *   scan controller for unit-testability).
  */
 import type { WebContents } from 'electron'
 import { IpcChannels } from '../../shared/ipc-types'
-import type { TagWriteEvent, ApplyResult } from '../../shared/ipc-types'
+import type { TagWriteEvent, ApplyResult, PendingTagEdit } from '../../shared/ipc-types'
 import type { TaggerRepo } from './taggerRepo'
 import { getWriteStrategy } from './tagWriter'
 import type { Mp3TagInput, Mp4TagInput } from './tagWriter'
@@ -35,34 +39,38 @@ export interface ApplyControllerDeps {
 }
 
 export interface ApplyController {
-  applyPendingWrites(): Promise<ApplyResult>
+  /**
+   * Apply a PRE-VALIDATED list of pending edits. The caller (IPC layer) is the
+   * security boundary and MUST filter `edits` through filterWritableEdits so
+   * only under-root, audio-extension paths reach the writer (T-05-PT / T-05-IV).
+   */
+  applyPendingWrites(edits: PendingTagEdit[]): Promise<ApplyResult>
 }
-
-// ─── Single-active guard (module-level, mirrors scan controller) ──────────────
-
-let isRunning = false
 
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
 /**
  * Build an ApplyController bound to the provided deps.
  * All dependencies are injected — no module-level singletons consumed here.
+ * The single-active guard is instance-scoped (CR-03): each controller owns its
+ * own `isRunning`, released by `finally` even if the body throws.
  */
 export function createApplyController(deps: ApplyControllerDeps): ApplyController {
   const now = deps.now ?? ((): number => Date.now())
 
+  // Instance-scoped single-active guard — no shared module-level flag.
+  let isRunning = false
+
   return {
-    async applyPendingWrites(): Promise<ApplyResult> {
+    async applyPendingWrites(edits: PendingTagEdit[]): Promise<ApplyResult> {
       if (isRunning) throw new Error('Un lot est déjà en cours')
       isRunning = true
 
-      let totalWritten = 0
-      let totalFailed = 0
-
       try {
-        const pending = deps.taggerRepo.listPendingWrites()
+        let totalWritten = 0
+        let totalFailed = 0
 
-        for (const edit of pending) {
+        for (const edit of edits) {
           try {
             const strategy = getWriteStrategy(edit.filePath)
 

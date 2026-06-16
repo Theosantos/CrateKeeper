@@ -118,7 +118,7 @@ describe('createApplyController', () => {
       now: () => NOW
     })
 
-    const result = await controller.applyPendingWrites()
+    const result = await controller.applyPendingWrites(repo.listPendingWrites())
 
     expect(writeMp3Tags).toHaveBeenCalledWith(MP3_EDIT.filePath, MP3_EDIT)
     expect(writeMp4Tags).toHaveBeenCalledWith(M4A_EDIT.filePath, M4A_EDIT, '/fake/ffmpeg')
@@ -129,9 +129,14 @@ describe('createApplyController', () => {
 
   it('order: write is attempted BEFORE markApplied', async () => {
     const order: string[] = []
-    writeMp3Tags = vi.fn(() => { order.push('write'); return Promise.resolve() }) as unknown as WriteFn3
+    writeMp3Tags = vi.fn(() => {
+      order.push('write')
+      return Promise.resolve()
+    }) as unknown as WriteFn3
     const repo = makeTaggerRepo([MP3_EDIT])
-    const markApplied = vi.fn(() => { order.push('markApplied') })
+    const markApplied = vi.fn(() => {
+      order.push('markApplied')
+    })
     repo.markApplied = markApplied
 
     const controller = createApplyController({
@@ -143,7 +148,7 @@ describe('createApplyController', () => {
       now: () => NOW
     })
 
-    await controller.applyPendingWrites()
+    await controller.applyPendingWrites(repo.listPendingWrites())
 
     expect(order).toEqual(['write', 'markApplied'])
   })
@@ -162,7 +167,7 @@ describe('createApplyController', () => {
       now: () => NOW
     })
 
-    await controller.applyPendingWrites()
+    await controller.applyPendingWrites(repo.listPendingWrites())
 
     expect(repo.markApplied).not.toHaveBeenCalled()
   })
@@ -181,7 +186,7 @@ describe('createApplyController', () => {
       now: () => NOW
     })
 
-    const result = await controller.applyPendingWrites()
+    const result = await controller.applyPendingWrites(repo.listPendingWrites())
 
     expect(result).toEqual({ totalWritten: 2, totalFailed: 1 })
     expect(repo.markApplied).toHaveBeenCalledWith(MP3_EDIT.filePath, NOW)
@@ -203,7 +208,7 @@ describe('createApplyController', () => {
       now: () => NOW
     })
 
-    await controller.applyPendingWrites()
+    await controller.applyPendingWrites(repo.listPendingWrites())
 
     const calls = send.mock.calls
     // fileDone ok:true for MP3_EDIT
@@ -227,7 +232,10 @@ describe('createApplyController', () => {
   it('single-active guard: second concurrent call throws', async () => {
     let resolvePending!: () => void
     writeMp3Tags = vi.fn(
-      () => new Promise<void>((res) => { resolvePending = res })
+      () =>
+        new Promise<void>((res) => {
+          resolvePending = res
+        })
     ) as unknown as WriteFn3
     const repo = makeTaggerRepo([MP3_EDIT])
     const controller = createApplyController({
@@ -240,9 +248,11 @@ describe('createApplyController', () => {
     })
 
     // Start first call — it will hang on writeMp3Tags
-    const first = controller.applyPendingWrites()
+    const first = controller.applyPendingWrites(repo.listPendingWrites())
     // Second call must throw immediately
-    await expect(controller.applyPendingWrites()).rejects.toThrow('Un lot est déjà en cours')
+    await expect(controller.applyPendingWrites(repo.listPendingWrites())).rejects.toThrow(
+      'Un lot est déjà en cours'
+    )
     // Let first call finish
     resolvePending()
     await first
@@ -259,7 +269,7 @@ describe('createApplyController', () => {
       now: () => NOW
     })
 
-    const result = await controller.applyPendingWrites()
+    const result = await controller.applyPendingWrites(repo.listPendingWrites())
 
     expect(result).toEqual({ totalWritten: 0, totalFailed: 1 })
     expect(repo.markApplied).not.toHaveBeenCalled()
@@ -267,6 +277,45 @@ describe('createApplyController', () => {
       (c) => c[1]?.type === 'fileDone' && c[1]?.filePath === FLAC_EDIT.filePath
     )
     expect(fileDoneCall?.[1]?.ok).toBe(false)
+  })
+
+  it('CR-03: single-active guard is instance-scoped — separate controllers do not share isRunning', async () => {
+    let resolveA!: () => void
+    const writeA = vi.fn(
+      () =>
+        new Promise<void>((res) => {
+          resolveA = res
+        })
+    ) as unknown as WriteFn3
+    const repoA = makeTaggerRepo([MP3_EDIT])
+    const controllerA = createApplyController({
+      taggerRepo: repoA,
+      writeMp3Tags: writeA,
+      writeMp4Tags,
+      ffmpegBinaryPath: '/fake/ffmpeg',
+      send,
+      now: () => NOW
+    })
+
+    // Controller A starts and hangs mid-write (its own isRunning = true).
+    const aRun = controllerA.applyPendingWrites(repoA.listPendingWrites())
+
+    // A SEPARATE instance must NOT observe A's guard — it runs to completion.
+    const repoB = makeTaggerRepo([OK2_EDIT])
+    const controllerB = createApplyController({
+      taggerRepo: repoB,
+      writeMp3Tags,
+      writeMp4Tags,
+      ffmpegBinaryPath: '/fake/ffmpeg',
+      send,
+      now: () => NOW
+    })
+    const bResult = await controllerB.applyPendingWrites(repoB.listPendingWrites())
+    expect(bResult).toEqual({ totalWritten: 1, totalFailed: 0 })
+
+    // Clean up the hung A batch.
+    resolveA()
+    await aRun
   })
 })
 
