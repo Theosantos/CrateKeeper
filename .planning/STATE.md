@@ -3,20 +3,20 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-06-16T09:02:45.288Z"
+last_updated: "2026-06-16T09:18:38Z"
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 14
-  completed_plans: 12
-  percent: 67
+  completed_plans: 13
+  percent: 71
 ---
 
 # Project State — DJ Utils
 
 ## Current Status
 
-Phase: 5 — Tag Writing & Rekordbox Compatibility (In Progress, 2026-06-16) — Plan 01 complete
+Phase: 5 — Tag Writing & Rekordbox Compatibility (In Progress, 2026-06-16) — Plan 02 complete
 Last updated: 2026-06-16
 
 ## Project Reference
@@ -68,6 +68,9 @@ Swipe-style tagging queue with audio preview, inline editing, undo, and session 
 - Plan 01-02: Editorial dark-studio direction with :root design tokens — explicit anti-template baseline for the whole renderer.
 - Plan 05-01: Re-edit predicate Option B (`applied_at IS NULL OR updated_at > applied_at`) adopted in `taggerRepo.listPendingWrites` — re-edits after a prior Appliquer pass are automatically re-queued without clearing `applied_at`.
 - Plan 05-01: ffmpeg MP4 output requires explicit `-f ipod`/`-f mp4` because `.ck-tmp` temp suffix is opaque to ffmpeg muxer detection.
+- Plan 05-02: applyController deps-injected (never import tagWriter/taggerRepo directly) for unit-testability; module-level isRunning boolean for single-active guard (T-05-TMP).
+- Plan 05-02: filterWritableEdits exported from ipc/tagger.ts for unit-testability; applyController optional in RegisterTaggerHandlersOpts for Phase 4 backward-compat.
+- Plan 05-02: IPC-layer defence-in-depth: filterWritableEdits called at both the apply-writes handler AND the controller reads from DB directly — belt-and-suspenders for T-05-PT.
 
 ### Known Risks
 
@@ -93,3 +96,4 @@ Swipe-style tagging queue with audio preview, inline editing, undo, and session 
 ### Phase 5 — Tag Writing & Rekordbox Compatibility (In Progress, 2026-06-16)
 
 - **Plan 05-01** (2026-06-16, ~7 min): Tag writer engine — node-id3@^0.2.9 installed; `test-tagged.mp3` fixture; `tagWriter.ts` (writeMp3Tags atomic ID3v2.3 + writeMp4Tags tmpo-atom ffmpeg remux + getWriteStrategy + starToPopmByte TAGG-07 mapping); `taggerRepo` extended with `listPendingWrites` (re-edit predicate Option B) and `markApplied` (per-file). 6 commits. 507 tests green (28 new). Marks TAGS-01, TAGS-02, TAGS-03 complete. Deviations: [Rule 1] ffmpeg explicit -f ipod/mp4 (muxer cannot infer from .ck-tmp); [Rule 1] removed unreachable `result===false` check (NodeID3.update returns true|Error); [Rule 1] type-asserted POPM native frame value for tsc. See `.planning/phases/05-tag-writing-rekordbox-compatibility/05-01-SUMMARY.md`.
+- **Plan 05-02** (2026-06-16, ~12 min): Batch apply controller + IPC surface — `applyController.ts` (createApplyController sequential loop, makeTaggerWriteSender); `ipc-types.ts` (3 channels + TagWriteEvent union + ApplyResult + 3 bridge methods); `preload/index.ts` (applyWrites/getPendingCount/onWriteEvent); `ipc/tagger.ts` (filterWritableEdits security gate + tagger:apply-writes/pending-count handlers); `main/index.ts` Phase 5 wiring block. 3 commits. 527 tests green (20 new). Build green. Deviations: [Rule 2] ipc-types channels added before Task 1 GREEN (applyController imports them); [Rule 1] vi.fn() type assertions in test; [Rule 1] App.test.tsx mock extended; [Rule 2] applyController optional in RegisterTaggerHandlersOpts for backward-compat. See `.planning/phases/05-tag-writing-rekordbox-compatibility/05-02-SUMMARY.md`.

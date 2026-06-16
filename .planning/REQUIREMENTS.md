@@ -43,9 +43,9 @@
 
 ### Tag Writing
 
-- [ ] **TAGS-01**: Les tags sont écrits directement dans les fichiers audio (ID3v2.3 pour MP3, atoms MP4 pour M4A/AAC/AIFF)
-- [ ] **TAGS-02**: L'écriture utilise un pattern atomic (write-to-temp + rename) pour éviter la corruption de fichiers
-- [ ] **TAGS-03**: Les tags écrits sont compatibles Rekordbox (ID3v2.3, UTF-16, BPM entier, TKEY notation Camelot)
+- [x] **TAGS-01**: Les tags sont écrits directement dans les fichiers audio (ID3v2.3 pour MP3, atoms MP4 pour M4A/AAC/AIFF)
+- [x] **TAGS-02**: L'écriture utilise un pattern atomic (write-to-temp + rename) pour éviter la corruption de fichiers
+- [x] **TAGS-03**: Les tags écrits sont compatibles Rekordbox (ID3v2.3, UTF-16, BPM entier, TKEY notation Camelot)
 
 ### Distribution
 
@@ -111,9 +111,9 @@
 | TAGG-08 | Phase 4 | Complete |
 | TAGG-09 | Phase 4 | Pending |
 | TAGG-10 | Phase 4 | Pending |
-| TAGS-01 | Phase 5 | Pending |
-| TAGS-02 | Phase 5 | Pending |
-| TAGS-03 | Phase 5 | Pending |
+| TAGS-01 | Phase 5 | Complete |
+| TAGS-02 | Phase 5 | Complete |
+| TAGS-03 | Phase 5 | Complete |
 | DIST-01 | Phase 6 | Pending |
 | DIST-02 | Phase 6 | Pending |
 

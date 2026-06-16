@@ -117,7 +117,7 @@
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 05-02-PLAN.md — applyController (per-file-retryable batch) + secured tagger:apply-writes/pending-count IPC + bridge + main wiring (TAGS-01/02/03)
+- [x] 05-02-PLAN.md — applyController (per-file-retryable batch) + secured tagger:apply-writes/pending-count IPC + bridge + main wiring (TAGS-01/02/03)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -145,5 +145,5 @@
 | 2. File Scanning & Library View | 3/3 | Complete   | 2026-05-29 |
 | 3. FFmpeg Conversion Pipeline | 3/3 | Complete   | 2026-06-03 |
 | 4. Tagger Core | 3/3 | Complete | 2026-06-15 |
-| 5. Tag Writing & Rekordbox Compatibility | 1/3 | In Progress|  |
+| 5. Tag Writing & Rekordbox Compatibility | 2/3 | In Progress|  |
 | 6. Distribution | 0/? | Not started | - |
