@@ -136,10 +136,17 @@
   3. FFmpeg is bundled inside the installer and resolves correctly at runtime on both platforms
 
 **Plans**: 3 plans
-
 Plans:
+**Wave 1**
+
 - [ ] 06-01-PLAN.md — Slice A (macOS): electron-builder.yml + fat-ffmpeg pre-merge + version bump → Universal .dmg (DIST-01, DIST-02)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 06-02-PLAN.md — Slice B (Windows + auto-update): electron-updater wiring + NSIS .exe build (DIST-01, DIST-02)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 06-03-PLAN.md — Slice C (release): GitHub Releases v1.0.0 publish + unsigned first-launch docs (DIST-01, DIST-02)
 
 ## Progress
