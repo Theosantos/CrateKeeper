@@ -135,7 +135,12 @@
   2. A Windows user runs a .exe installer and launches the app — conversion and scanning work out of the box
   3. FFmpeg is bundled inside the installer and resolves correctly at runtime on both platforms
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Slice A (macOS): electron-builder.yml + fat-ffmpeg pre-merge + version bump → Universal .dmg (DIST-01, DIST-02)
+- [ ] 06-02-PLAN.md — Slice B (Windows + auto-update): electron-updater wiring + NSIS .exe build (DIST-01, DIST-02)
+- [ ] 06-03-PLAN.md — Slice C (release): GitHub Releases v1.0.0 publish + unsigned first-launch docs (DIST-01, DIST-02)
 
 ## Progress
 
@@ -146,4 +151,4 @@
 | 3. FFmpeg Conversion Pipeline | 3/3 | Complete   | 2026-06-03 |
 | 4. Tagger Core | 3/3 | Complete | 2026-06-15 |
 | 5. Tag Writing & Rekordbox Compatibility | 3/3 | Complete    | 2026-06-16 |
-| 6. Distribution | 0/? | Not started | - |
+| 6. Distribution | 0/3 | Planned | - |
