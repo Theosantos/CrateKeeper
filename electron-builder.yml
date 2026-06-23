@@ -18,6 +18,11 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   identity: null
   hardenedRuntime: false
+  # better-sqlite3 ships a byte-identical test fixture (test_extension.node) that
+  # @electron/universal refuses to merge unless declared here. It is never loaded
+  # at runtime; take the x64 copy. The real better_sqlite3.node differs per-arch
+  # and still lipo-merges to a fat binary.
+  x64ArchFiles: "**/test_extension.node"
   target:
     - target: dmg
       arch: universal
