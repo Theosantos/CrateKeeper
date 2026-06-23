@@ -1,6 +1,6 @@
 {
   "name": "cratekeeper",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Desktop DJ library tools — analyse, convert, tag",
   "main": "./out/main/index.js",
   "author": "CrateKeeper",
@@ -23,7 +23,7 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
-    "build:mac": "electron-vite build && electron-builder --mac",
+    "build:mac": "bash scripts/prepare-universal-ffmpeg.sh && electron-vite build && electron-builder --mac --arch universal",
     "build:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
