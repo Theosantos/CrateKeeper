@@ -11,7 +11,7 @@
 - [x] **Phase 3: FFmpeg Conversion Pipeline** - Batch conversion, progress tracking, resume, tag preservation (completed 2026-06-03)
 - [x] **Phase 4: Tagger Core** - Swipe-style tagging queue, audio previews, inline editing, session resume (completed 2026-06-15)
 - [x] **Phase 5: Tag Writing & Rekordbox Compatibility** - Atomic ID3v2.3/MP4 writes, Rekordbox-compatible fields (completed 2026-06-16)
-- [ ] **Phase 6: Distribution** - Signed .dmg and .exe installers with bundled FFmpeg
+- [x] **Phase 6: Distribution** - Signed .dmg and .exe installers with bundled FFmpeg (completed 2026-06-24)
 
 ## Phase Details
 
@@ -147,7 +147,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 06-03-PLAN.md — Slice C (release): GitHub Releases v1.0.0 publish + unsigned first-launch docs (DIST-01, DIST-02)
+- [x] 06-03-PLAN.md — Slice C (release): GitHub Releases v1.0.0 publish + unsigned first-launch docs (DIST-01, DIST-02)
 
 ## Progress
 
@@ -158,4 +158,4 @@ Plans:
 | 3. FFmpeg Conversion Pipeline | 3/3 | Complete   | 2026-06-03 |
 | 4. Tagger Core | 3/3 | Complete | 2026-06-15 |
 | 5. Tag Writing & Rekordbox Compatibility | 3/3 | Complete    | 2026-06-16 |
-| 6. Distribution | 2/3 | In Progress|  |
+| 6. Distribution | 3/3 | Complete   | 2026-06-24 |
