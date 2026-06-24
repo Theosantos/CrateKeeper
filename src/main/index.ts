@@ -29,6 +29,7 @@ import {
   makeTaggerWriteSender
 } from './tagger/applyController'
 import { writeMp3Tags, writeMp4Tags } from './tagger/tagWriter'
+import { initWindowsUpdater, checkForUpdatesMacOS } from './update/updater'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const ffmpegStatic = require('ffmpeg-static') as string
 
@@ -209,6 +210,12 @@ app.whenReady().then(() => {
   })
 
   mainWindow = createWindow()
+
+  // Phase 6: auto-update (Windows) + version-check notify (macOS).
+  // Both no-op in dev and off-platform; errors degrade gracefully (D-06/07/08).
+  // Called after createWindow() so update dialogs have a parent window.
+  initWindowsUpdater()
+  checkForUpdatesMacOS() // fire-and-forget; errors handled internally (D-08)
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
