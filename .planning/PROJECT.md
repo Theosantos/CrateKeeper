@@ -13,6 +13,7 @@ Permettre à un DJ de passer de "bibliothèque en désordre" à "collection prop
 ### Validated
 
 - [x] Écriture des tags directement dans les fichiers (ID3v2.3 / MP4) — Validated in Phase 5: tag-writing-rekordbox-compatibility (TAGS-01/02/03; write engine + batch apply + "Appliquer" UI shipped. Manual Rekordbox/Mp3tag/crash-safety UAT tracked in 05-HUMAN-UAT.md)
+- [x] Distribution via installeur .dmg (macOS) et .exe (Windows) — Validated in Phase 6: distribution (DIST-01/DIST-02; unsigned universal .dmg + NSIS .exe with bundled fat FFmpeg, published v1.0.0 GitHub Release, cross-platform updater. Windows-hardware install smoke-test tracked in 06-HUMAN-UAT.md)
 
 ### Active
 
@@ -22,7 +23,6 @@ Permettre à un DJ de passer de "bibliothèque en désordre" à "collection prop
 - [ ] Boutons Garder / Skip sur chaque son
 - [ ] Tags rapides prédéfinis (genres configurables)
 - [ ] Saisie inline de BPM, clé musicale, commentaires, artiste/titre
-- [ ] Distribution via installeur .dmg (macOS) et .exe (Windows)
 
 ### Out of Scope
 
