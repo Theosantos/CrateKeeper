@@ -1,0 +1,71 @@
+name: Release
+
+# Builds the macOS Universal .dmg and the Windows x64 NSIS .exe on GitHub's
+# runners, so a Mac-only maintainer can produce + publish the Windows artifact
+# (NSIS cannot be cross-compiled from macOS).
+#
+# Two ways to run it:
+#   - workflow_dispatch (Actions tab → Run workflow): build installers as
+#     downloadable artifacts. Set "publish" = true to also push them to a
+#     GitHub Release. Use this to smoke-test the Windows build (Plan 06-02).
+#   - push a tag like v1.0.0: builds AND publishes both installers + updater
+#     metadata to the matching GitHub Release (Plan 06-03).
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish to GitHub Releases (otherwise upload build artifacts only)"
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # electron-updater publish needs to create/edit Releases
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+          - os: windows-latest
+            platform: win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build${{ (github.ref_type == 'tag' || inputs.publish) && ' + publish' || '' }} (${{ matrix.platform }})
+        shell: bash
+        env:
+          # electron-builder reads GH_TOKEN; the runner token can publish to
+          # this same repo's Releases. Never echoed.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ] || [ "${{ inputs.publish }}" = "true" ]; then
+            npm run build:${{ matrix.platform }} -- --publish always
+          else
+            npm run build:${{ matrix.platform }} -- --publish never
+          fi
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cratekeeper-${{ matrix.platform }}
+          path: |
+            dist/*.dmg
+            dist/*.exe
+            dist/*.yml
+          if-no-files-found: ignore
