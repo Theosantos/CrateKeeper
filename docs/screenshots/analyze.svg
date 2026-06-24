@@ -1,0 +1,49 @@
+<svg width="640" height="400" viewBox="0 0 640 400" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Analyze tool preview">
+  <rect width="640" height="400" rx="14" fill="#15161c" stroke="#2a2b33"/>
+  <!-- title bar -->
+  <rect width="640" height="44" rx="14" fill="#1b1c24"/>
+  <rect y="30" width="640" height="14" fill="#1b1c24"/>
+  <circle cx="26" cy="22" r="6" fill="#3a3b44"/>
+  <circle cx="46" cy="22" r="6" fill="#3a3b44"/>
+  <circle cx="66" cy="22" r="6" fill="#3a3b44"/>
+  <text x="320" y="27" text-anchor="middle" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="600" fill="#8A8C96">Analyze — library scan</text>
+
+  <!-- table header -->
+  <text x="32" y="86" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" font-weight="700" fill="#6f717b" letter-spacing="0.5">FILE</text>
+  <text x="392" y="86" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" font-weight="700" fill="#6f717b" letter-spacing="0.5">FORMAT</text>
+  <text x="500" y="86" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" font-weight="700" fill="#6f717b" letter-spacing="0.5">BITRATE</text>
+  <line x1="24" y1="98" x2="616" y2="98" stroke="#26272f"/>
+
+  <!-- rows -->
+  <g font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="14">
+    <rect x="24" y="106" width="592" height="40" rx="8" fill="#1a1b22"/>
+    <text x="36" y="131" fill="#D8DAE2">Midnight Drive — Original Mix.mp3</text>
+    <rect x="388" y="116" width="56" height="20" rx="10" fill="#2a2230"/><text x="416" y="130" text-anchor="middle" fill="#C470D6" font-size="11" font-weight="600">MP3</text>
+    <text x="500" y="131" fill="#8A8C96">320 kbps</text>
+
+    <rect x="24" y="152" width="592" height="40" rx="8" fill="#16171d"/>
+    <text x="36" y="177" fill="#D8DAE2">Sunset Boulevard (Extended).aiff</text>
+    <rect x="388" y="162" width="50" height="20" rx="10" fill="#1f2a2c"/><text x="413" y="176" text-anchor="middle" fill="#46B5C9" font-size="11" font-weight="600">AIFF</text>
+    <text x="500" y="177" fill="#8A8C96">1411 kbps</text>
+
+    <rect x="24" y="198" width="592" height="40" rx="8" fill="#1a1b22"/>
+    <text x="36" y="223" fill="#D8DAE2">Lost Frequencies — Reload.m4a</text>
+    <rect x="388" y="208" width="52" height="20" rx="10" fill="#22291f"/><text x="414" y="222" text-anchor="middle" fill="#5BC98A" font-size="11" font-weight="600">M4A</text>
+    <text x="500" y="223" fill="#8A8C96">256 kbps</text>
+
+    <rect x="24" y="244" width="592" height="40" rx="8" fill="#16171d"/>
+    <text x="36" y="269" fill="#D8DAE2">Deep Cut — VIP Edit.wav</text>
+    <rect x="388" y="254" width="48" height="20" rx="10" fill="#2a241c"/><text x="412" y="268" text-anchor="middle" fill="#E6A23C" font-size="11" font-weight="600">WAV</text>
+    <text x="500" y="269" fill="#8A8C96">1411 kbps</text>
+
+    <rect x="24" y="290" width="592" height="40" rx="8" fill="#1a1b22"/>
+    <text x="36" y="315" fill="#D8DAE2">Afterhours — Dub Mix.mp3</text>
+    <rect x="388" y="300" width="56" height="20" rx="10" fill="#2a2230"/><text x="416" y="314" text-anchor="middle" fill="#C470D6" font-size="11" font-weight="600">MP3</text>
+    <text x="500" y="315" fill="#8A8C96">192 kbps</text>
+  </g>
+
+  <!-- footer summary -->
+  <text x="32" y="368" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" fill="#8A8C96">2,418 files scanned</text>
+  <rect x="470" y="352" width="146" height="30" rx="8" fill="#E6A23C"/>
+  <text x="543" y="372" text-anchor="middle" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#15161c">Export CSV</text>
+</svg>

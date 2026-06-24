@@ -1,70 +1,128 @@
-# CrateKeeper
+<div align="center">
 
-Outils desktop pour DJ — analyser, convertir et tagger sa bibliothèque musicale (compatible Rekordbox), sans quitter une seule interface.
+<img src="docs/banner.svg" alt="CrateKeeper" width="100%" />
 
-## Télécharger & Installer
+<p>
+  <a href="https://github.com/Theosantos/CrateKeeper/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Theosantos/CrateKeeper?style=flat-square&color=E6A23C&label=release"></a>
+  <img alt="Platforms" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-2a2b33?style=flat-square">
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-2a2b33?style=flat-square"></a>
+  <img alt="Built with Electron" src="https://img.shields.io/badge/built%20with-Electron-2a2b33?style=flat-square">
+  <a href="https://github.com/Theosantos/CrateKeeper/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Theosantos/CrateKeeper/total?style=flat-square&color=2a2b33&label=downloads"></a>
+</p>
 
-Rendez-vous sur la page des **Releases** : **https://github.com/Theosantos/CrateKeeper/releases**
+**Take your DJ library from messy to clean — analyze, convert, and tag, all in one desktop app.**
 
-Téléchargez le bon fichier pour votre système :
+[Download](#-download--install) · [Features](#-features) · [Updating](#-updating) · [Development](#-development)
 
-| Système | Fichier à télécharger |
-|---------|-----------------------|
-| **macOS** (Apple Silicon **ou** Intel) | `CrateKeeper-1.0.0-universal.dmg` |
-| **Windows** (64 bits) | `CrateKeeper-Setup-1.0.0.exe` |
-
-> ℹ️ L'application n'est pas encore signée (version 1). Les étapes ci-dessous (clic droit → Ouvrir sur macOS, Run anyway sur Windows) sont donc **normales et attendues**. Ne les faites **que** pour l'application téléchargée depuis la page Releases officielle ci-dessus.
-
-### macOS — premier lancement
-
-1. Double-cliquez le fichier `.dmg` téléchargé pour l'ouvrir, puis glissez **CrateKeeper** dans le dossier **Applications**.
-2. Dans **Applications**, faites un **clic droit** (ou Ctrl-clic / *right-click*) sur **CrateKeeper** → **Ouvrir** → **Ouvrir**.
-3. ⚠️ Ne lancez **pas** l'app par un double-clic la première fois : une application non signée affiche alors un message trompeur « *CrateKeeper est endommagé* ». Le **clic droit → Ouvrir** contourne ce message proprement. Une fois ouverte ainsi la première fois, les lancements suivants se font normalement.
-
-### Windows — premier lancement
-
-1. Lancez `CrateKeeper-Setup-1.0.0.exe`.
-2. Si l'écran bleu **Windows SmartScreen** apparaît, cliquez sur **Informations complémentaires** (*More info*) → **Exécuter quand même** (*Run anyway*).
-3. Suivez l'installation (par utilisateur, sans mot de passe administrateur), puis lancez CrateKeeper.
-
-Aucune installation supplémentaire (Homebrew, Node, FFmpeg…) n'est nécessaire : tout est embarqué dans l'application.
+</div>
 
 ---
 
-## Développement
+CrateKeeper is a desktop app for DJs who want to reclaim control of their music library.
+It bundles three tools behind one interface so you can go from "library in disarray" to
+"clean, tagged collection" without juggling scripts, the command line, or a dozen utilities.
 
-### Recommended IDE Setup
+- **No setup.** FFmpeg is bundled — no Homebrew, Node, or command line required.
+- **Rekordbox-ready.** Tags are written as standard ID3v2.3 / MP4 atoms that Rekordbox reads correctly.
+- **Stays responsive.** Scanning and converting run on worker threads, so the UI never freezes.
 
-- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
+## ✨ Features
 
-### Install
+### 🔍 Analyze
+Batch-scan a folder of thousands of tracks and see format, bitrate, and metadata at a glance.
+Spot the lossy files hiding in your "lossless" crate, and export a CSV report of the whole library.
+
+### 🎚️ Convert
+Transcode to a target format and bitrate (MP3 320 by default) with the bundled FFmpeg.
+A non-blocking batch queue shows per-file progress and keeps going if one file fails.
+
+### 🏷️ Tag
+A Tinder-style swipe interface for the tedious part: categorizing untagged tracks.
+Preview the waveform, set genre / rating / comment, and CrateKeeper writes
+**Rekordbox-compatible** ID3v2.3 (MP3) and MP4 tags back to the files.
+
+## 📸 Screenshots
+
+> Placeholder mockups — see [`docs/screenshots/`](docs/screenshots/) to swap in real captures.
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/analyze.svg" alt="Analyze"><br><sub><b>Analyze</b> — library scan + CSV export</sub></td>
+    <td width="33%"><img src="docs/screenshots/convert.svg" alt="Convert"><br><sub><b>Convert</b> — batch transcode queue</sub></td>
+    <td width="33%"><img src="docs/screenshots/tag.svg" alt="Tag"><br><sub><b>Tag</b> — swipe to categorize</sub></td>
+  </tr>
+</table>
+
+## ⬇️ Download & Install
+
+Grab the latest installer from the **[Releases page](https://github.com/Theosantos/CrateKeeper/releases)**:
+
+| System | File |
+|--------|------|
+| **macOS** (Apple Silicon **or** Intel) | `CrateKeeper-1.0.0-universal.dmg` |
+| **Windows** (64-bit) | `CrateKeeper-Setup-1.0.0.exe` |
+
+> ℹ️ CrateKeeper v1 is **not code-signed yet**, so the first-launch steps below are expected.
+> Only follow them for the app downloaded from the official Releases page above.
+
+### macOS — first launch
+1. Open the `.dmg` and drag **CrateKeeper** to **Applications**.
+2. In Applications, **right-click** (or Control-click) **CrateKeeper** → **Open** → **Open**.
+3. ⚠️ Don't launch it with a normal double-click the first time — an unsigned app shows a misleading
+   *"CrateKeeper is damaged"* message that way. The right-click → Open path opens it cleanly; after
+   that, it launches normally.
+
+### Windows — first launch
+1. Run `CrateKeeper-Setup-1.0.0.exe`.
+2. If **Windows SmartScreen** appears, click **More info** → **Run anyway**.
+3. Finish the per-user install (no admin password needed), then launch CrateKeeper.
+
+Nothing else to install — FFmpeg ships inside the app.
+
+## 🔄 Updating
+
+- **Windows** auto-updates in the background via [electron-updater](https://www.electron.build/auto-update) (NSIS).
+- **macOS** does a lightweight version check on launch and points you to the Releases page when a newer
+  version exists. Update checks fail silently when offline — they never block the app.
+
+## 🛠️ Built with
+
+[Electron](https://www.electronjs.org/) · [electron-vite](https://electron-vite.org/) ·
+[React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) ·
+[Zustand](https://github.com/pmndrs/zustand) · [Framer Motion](https://www.framer.com/motion/) ·
+[better-sqlite3](https://github.com/WiseLibs/better-sqlite3) ·
+[FFmpeg](https://ffmpeg.org/) (bundled via `ffmpeg-static`) ·
+[music-metadata](https://github.com/borewit/music-metadata) · [node-id3](https://github.com/Zazama/node-id3)
+
+## 💻 Development
+
+Requires Node.js 22+.
 
 ```bash
-$ npm install
+npm install      # install dependencies
+npm run dev      # run the app with hot reload
+npm test         # run the test suite (Vitest)
+npm run typecheck
 ```
 
-### Development
+### Building installers locally
 
 ```bash
-$ npm run dev
+npm run build:mac    # macOS Universal .dmg
+npm run build:win    # Windows NSIS .exe (Windows host only)
 ```
 
-### Build
+### Releasing
 
-```bash
-# For Windows
-$ npm run build:win
+Both installers are built and published by GitHub Actions
+([`.github/workflows/release.yml`](.github/workflows/release.yml)):
 
-# For macOS
-$ npm run build:mac
+- **Build only** (downloadable artifacts): *Actions → Release → Run workflow* (leave *publish* unchecked).
+- **Build + publish** a GitHub Release: push a version tag —
+  ```bash
+  git tag v1.0.0 && git push origin v1.0.0
+  ```
 
-# For Linux
-$ npm run build:linux
-```
+## 📄 License
 
-### Release (CI)
-
-Both installers are built and published by GitHub Actions (`.github/workflows/release.yml`):
-
-- **Build only** (downloadable artifacts): Actions tab → *Release* → *Run workflow* (leave *publish* unchecked).
-- **Build + publish** to a GitHub Release: push a version tag, e.g. `git tag v1.0.0 && git push origin v1.0.0`.
+[MIT](LICENSE) © Theo Santos

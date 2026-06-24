@@ -1,10 +1,18 @@
 {
   "name": "cratekeeper",
   "version": "1.0.0",
-  "description": "Desktop DJ library tools — analyse, convert, tag",
+  "description": "Desktop DJ library tools — analyse, convert, tag (Rekordbox-compatible)",
   "main": "./out/main/index.js",
-  "author": "CrateKeeper",
-  "homepage": "https://electron-vite.org",
+  "author": "Theo Santos",
+  "license": "MIT",
+  "homepage": "https://github.com/Theosantos/CrateKeeper",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Theosantos/CrateKeeper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Theosantos/CrateKeeper/issues"
+  },
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
