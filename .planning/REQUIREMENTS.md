@@ -49,8 +49,8 @@
 
 ### Distribution
 
-- [ ] **DIST-01**: L'app est distribuable via installeur .dmg (macOS) et .exe (Windows) sans nécessiter d'installation préalable
-- [ ] **DIST-02**: FFmpeg est bundlé dans l'installeur — aucune dépendance système requise
+- [x] **DIST-01**: L'app est distribuable via installeur .dmg (macOS) et .exe (Windows) sans nécessiter d'installation préalable
+- [x] **DIST-02**: FFmpeg est bundlé dans l'installeur — aucune dépendance système requise
 
 ## v2 Requirements
 
@@ -114,8 +114,8 @@
 | TAGS-01 | Phase 5 | Complete |
 | TAGS-02 | Phase 5 | Complete |
 | TAGS-03 | Phase 5 | Complete |
-| DIST-01 | Phase 6 | Pending |
-| DIST-02 | Phase 6 | Pending |
+| DIST-01 | Phase 6 | Complete |
+| DIST-02 | Phase 6 | Complete |
 
 **Coverage:**
 - v1 requirements: 29 total

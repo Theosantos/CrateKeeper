@@ -158,4 +158,4 @@ Plans:
 | 3. FFmpeg Conversion Pipeline | 3/3 | Complete   | 2026-06-03 |
 | 4. Tagger Core | 3/3 | Complete | 2026-06-15 |
 | 5. Tag Writing & Rekordbox Compatibility | 3/3 | Complete    | 2026-06-16 |
-| 6. Distribution | 3/3 | Complete   | 2026-06-24 |
+| 6. Distribution | 3/3 | Complete    | 2026-06-24 |
