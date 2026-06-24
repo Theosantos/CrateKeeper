@@ -25,6 +25,12 @@ on:
 permissions:
   contents: write # electron-updater publish needs to create/edit Releases
 
+# Serialize runs for the same ref so two near-simultaneous tag pushes (or a
+# re-run) never publish to the same Release in parallel and corrupt latest.yml.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     strategy:
@@ -68,4 +74,5 @@ jobs:
             dist/*.dmg
             dist/*.exe
             dist/*.yml
-          if-no-files-found: ignore
+          # A release run that produced no installer should be loud, not green.
+          if-no-files-found: warn

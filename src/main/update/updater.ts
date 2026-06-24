@@ -22,6 +22,23 @@ import { app, dialog, shell } from 'electron'
 const GITHUB_RELEASES_URL = 'https://github.com/Theosantos/CrateKeeper/releases'
 const LATEST_RELEASE_API = 'https://api.github.com/repos/Theosantos/CrateKeeper/releases/latest'
 
+/**
+ * True only when `remote` is a strictly newer semver than `local`. Compares
+ * numeric segments (build/prerelease suffix ignored) so we never prompt a
+ * "downgrade" when the running build is ahead of the latest stable tag, and so
+ * cosmetic formatting (v1.0 vs 1.0.0) doesn't trip a false update.
+ */
+function isNewer(remote: string, local: string): boolean {
+  const r = remote.split('-')[0].split('.').map((n) => parseInt(n, 10) || 0)
+  const l = local.split('-')[0].split('.').map((n) => parseInt(n, 10) || 0)
+  for (let i = 0; i < Math.max(r.length, l.length); i++) {
+    const a = r[i] ?? 0
+    const b = l[i] ?? 0
+    if (a !== b) return a > b
+  }
+  return false
+}
+
 /** Wire Windows auto-update (NSIS). No-op outside packaged builds. */
 export function initWindowsUpdater(): void {
   if (!app.isPackaged || process.platform !== 'win32') return
@@ -46,6 +63,8 @@ export function initWindowsUpdater(): void {
       .then(({ response }) => {
         if (response === 0) autoUpdater.quitAndInstall()
       })
+      // D-08: a dialog failure must never surface as an unhandled rejection
+      .catch((err) => console.error('[updater] update-downloaded dialog error:', err?.message))
   })
 
   // Fire-and-forget — error event handles failures
@@ -65,11 +84,16 @@ export async function checkForUpdatesMacOS(): Promise<void> {
     })
     if (!res.ok) return
 
-    const data = (await res.json()) as { tag_name: string }
-    const latestTag = data.tag_name?.replace(/^v/, '') ?? ''
+    // Never trust the external response shape — narrow instead of asserting.
+    const data: unknown = await res.json()
+    const tagName =
+      typeof data === 'object' && data !== null && 'tag_name' in data
+        ? String((data as { tag_name: unknown }).tag_name)
+        : ''
+    const latestTag = tagName.replace(/^v/, '')
     const currentVersion = app.getVersion()
 
-    if (latestTag && latestTag !== currentVersion) {
+    if (latestTag && isNewer(latestTag, currentVersion)) {
       const { response } = await dialog.showMessageBox({
         type: 'info',
         title: 'Mise à jour disponible',
@@ -79,7 +103,10 @@ export async function checkForUpdatesMacOS(): Promise<void> {
         defaultId: 0,
       })
       if (response === 0) {
-        shell.openExternal(GITHUB_RELEASES_URL)
+        // D-08: openExternal can reject; swallow it like the rest of the check.
+        void shell.openExternal(GITHUB_RELEASES_URL).catch((err) =>
+          console.error('[updater] openExternal failed:', err?.message)
+        )
       }
     }
   } catch {
