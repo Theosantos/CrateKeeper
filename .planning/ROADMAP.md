@@ -139,7 +139,7 @@
 Plans:
 **Wave 1**
 
-- [ ] 06-01-PLAN.md — Slice A (macOS): electron-builder.yml + fat-ffmpeg pre-merge + version bump → Universal .dmg (DIST-01, DIST-02)
+- [x] 06-01-PLAN.md — Slice A (macOS): electron-builder.yml + fat-ffmpeg pre-merge + version bump → Universal .dmg (DIST-01, DIST-02)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -158,4 +158,4 @@ Plans:
 | 3. FFmpeg Conversion Pipeline | 3/3 | Complete   | 2026-06-03 |
 | 4. Tagger Core | 3/3 | Complete | 2026-06-15 |
 | 5. Tag Writing & Rekordbox Compatibility | 3/3 | Complete    | 2026-06-16 |
-| 6. Distribution | 0/3 | Planned | - |
+| 6. Distribution | 1/3 | In Progress|  |

@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-last_updated: "2026-06-22T15:02:32.757Z"
+status: in_progress
+last_updated: "2026-06-24T12:35:10.264Z"
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 17
-  completed_plans: 14
-  percent: 82
+  completed_plans: 15
+  percent: 83
 ---
 
 # Project State — DJ Utils
@@ -24,7 +24,7 @@ Last updated: 2026-06-16
 See: .planning/PROJECT.md (updated 2026-05-28)
 
 **Core value:** Permettre à un DJ de passer de "bibliothèque en désordre" à "collection propre et taguée" sans quitter une seule interface.
-**Current focus:** Phase 6 — distribution
+**Current focus:** Phase 06 — distribution
 
 ## Phase History
 
@@ -74,6 +74,10 @@ Swipe-style tagging queue with audio preview, inline editing, undo, and session 
 - Plan 05-03: loadPendingWriteCount reads from getPendingCount bridge (D-03 source of truth), not derived from in-memory pendingEdits map — re-edits after a prior apply counted correctly.
 - Plan 05-03: subscribe-before-invoke pattern for applyWrites: onWriteEvent registered before tagger.applyWrites() call so no fileDone events are missed (mirrors useConversionStore.resumeBatch).
 - Plan 05-03: ApplyBanner mounted in both active-card and end-of-queue branches — end-of-queue is the primary user moment for Appliquer.
+- Plan 06-01: `build:mac` uses `electron-builder --universal` (NOT `--arch universal`, which is an invalid flag); the mac target also pins `arch: universal` in electron-builder.yml.
+- Plan 06-01: `mac.x64ArchFiles: "**/test_extension.node"` is required so @electron/universal merges past better-sqlite3's byte-identical test fixture; the real `better_sqlite3.node` differs per-arch and lipo-merges to fat.
+- Plan 06-01: Fat ffmpeg is produced pre-build via `scripts/prepare-universal-ffmpeg.sh` (download both darwin arches from ffmpeg-static b6.1.1 + `lipo -create`) — this prevented the ffmpeg universal-merge landmine first-try.
+- Plan 06-01: Dropped the scaffold's `npmRebuild: false` — it would skip the per-arch native rebuild the universal build needs.
 
 ### Known Risks
 
