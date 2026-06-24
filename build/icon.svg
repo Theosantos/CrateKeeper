@@ -1,0 +1,48 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="512" y1="80" x2="512" y2="944" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#20222b"/>
+      <stop offset="1" stop-color="#0e0f14"/>
+    </linearGradient>
+    <radialGradient id="disc" cx="430" cy="410" r="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2e2f39"/>
+      <stop offset="0.55" stop-color="#1b1c23"/>
+      <stop offset="1" stop-color="#121318"/>
+    </radialGradient>
+    <linearGradient id="amber" x1="512" y1="406" x2="512" y2="618" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F4BB52"/>
+      <stop offset="1" stop-color="#DD9128"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="512" cy="470" r="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E6A23C" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#E6A23C" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="sheen" cx="392" cy="372" r="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- app squircle (transparent corners) -->
+  <rect x="80" y="80" width="864" height="864" rx="196" fill="url(#bg)"/>
+  <rect x="80" y="80" width="864" height="864" rx="196" fill="url(#glow)"/>
+  <rect x="80.5" y="80.5" width="863" height="863" rx="195.5" fill="none" stroke="#34353f" stroke-width="2"/>
+
+  <!-- vinyl record -->
+  <circle cx="512" cy="512" r="300" fill="url(#disc)"/>
+  <circle cx="512" cy="512" r="300" fill="url(#sheen)"/>
+  <circle cx="512" cy="512" r="299" fill="none" stroke="#E6A23C" stroke-width="4" stroke-opacity="0.55"/>
+
+  <!-- grooves -->
+  <g fill="none" stroke="#E6A23C" stroke-opacity="0.14" stroke-width="3">
+    <circle cx="512" cy="512" r="262"/>
+    <circle cx="512" cy="512" r="230"/>
+    <circle cx="512" cy="512" r="198"/>
+    <circle cx="512" cy="512" r="166"/>
+  </g>
+
+  <!-- center label -->
+  <circle cx="512" cy="512" r="100" fill="url(#amber)"/>
+  <circle cx="512" cy="512" r="100" fill="none" stroke="#B5751E" stroke-width="3"/>
+  <circle cx="512" cy="512" r="16" fill="#14151a"/>
+</svg>
