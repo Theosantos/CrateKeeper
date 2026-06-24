@@ -143,7 +143,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 06-02-PLAN.md — Slice B (Windows + auto-update): electron-updater wiring + NSIS .exe build (DIST-01, DIST-02)
+- [x] 06-02-PLAN.md — Slice B (Windows + auto-update): electron-updater wiring + NSIS .exe build (DIST-01, DIST-02)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -158,4 +158,4 @@ Plans:
 | 3. FFmpeg Conversion Pipeline | 3/3 | Complete   | 2026-06-03 |
 | 4. Tagger Core | 3/3 | Complete | 2026-06-15 |
 | 5. Tag Writing & Rekordbox Compatibility | 3/3 | Complete    | 2026-06-16 |
-| 6. Distribution | 1/3 | In Progress|  |
+| 6. Distribution | 2/3 | In Progress|  |
