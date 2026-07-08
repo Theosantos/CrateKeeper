@@ -2,30 +2,30 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-last_updated: 2026-06-16T13:06:00.134Z
+status: Awaiting next milestone
+last_updated: "2026-07-08T13:15:04.723Z"
+last_activity: 2026-07-08 — Milestone v1.0 completed and archived
 progress:
   total_phases: 6
-  completed_phases: 5
-  total_plans: 14
-  completed_plans: 14
-  percent: 83
-stopped_at: Phase 05 complete (3/3) — ready to discuss Phase 6
+  completed_phases: 6
+  total_plans: 17
+  completed_plans: 17
+  percent: 100
 ---
 
 # Project State — DJ Utils
 
 ## Current Status
 
-Phase: 6
+Phase: 06
 Last updated: 2026-06-16
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-28)
+See: .planning/PROJECT.md (updated 2026-06-24 after v1.0)
 
 **Core value:** Permettre à un DJ de passer de "bibliothèque en désordre" à "collection propre et taguée" sans quitter une seule interface.
-**Current focus:** Phase 6 — distribution
+**Current focus:** v1.0 shippé (v1.0.0/v1.0.1 publiés) — prochain milestone à définir via /gsd-new-milestone
 
 ## Phase History
 
@@ -75,6 +75,10 @@ Swipe-style tagging queue with audio preview, inline editing, undo, and session 
 - Plan 05-03: loadPendingWriteCount reads from getPendingCount bridge (D-03 source of truth), not derived from in-memory pendingEdits map — re-edits after a prior apply counted correctly.
 - Plan 05-03: subscribe-before-invoke pattern for applyWrites: onWriteEvent registered before tagger.applyWrites() call so no fileDone events are missed (mirrors useConversionStore.resumeBatch).
 - Plan 05-03: ApplyBanner mounted in both active-card and end-of-queue branches — end-of-queue is the primary user moment for Appliquer.
+- Plan 06-01: `build:mac` uses `electron-builder --universal` (NOT `--arch universal`, which is an invalid flag); the mac target also pins `arch: universal` in electron-builder.yml.
+- Plan 06-01: `mac.x64ArchFiles: "**/test_extension.node"` is required so @electron/universal merges past better-sqlite3's byte-identical test fixture; the real `better_sqlite3.node` differs per-arch and lipo-merges to fat.
+- Plan 06-01: Fat ffmpeg is produced pre-build via `scripts/prepare-universal-ffmpeg.sh` (download both darwin arches from ffmpeg-static b6.1.1 + `lipo -create`) — this prevented the ffmpeg universal-merge landmine first-try.
+- Plan 06-01: Dropped the scaffold's `npmRebuild: false` — it would skip the per-arch native rebuild the universal build needs.
 
 ### Known Risks
 
@@ -102,3 +106,28 @@ Swipe-style tagging queue with audio preview, inline editing, undo, and session 
 - **Plan 05-01** (2026-06-16, ~7 min): Tag writer engine — node-id3@^0.2.9 installed; `test-tagged.mp3` fixture; `tagWriter.ts` (writeMp3Tags atomic ID3v2.3 + writeMp4Tags tmpo-atom ffmpeg remux + getWriteStrategy + starToPopmByte TAGG-07 mapping); `taggerRepo` extended with `listPendingWrites` (re-edit predicate Option B) and `markApplied` (per-file). 6 commits. 507 tests green (28 new). Marks TAGS-01, TAGS-02, TAGS-03 complete. Deviations: [Rule 1] ffmpeg explicit -f ipod/mp4 (muxer cannot infer from .ck-tmp); [Rule 1] removed unreachable `result===false` check (NodeID3.update returns true|Error); [Rule 1] type-asserted POPM native frame value for tsc. See `.planning/phases/05-tag-writing-rekordbox-compatibility/05-01-SUMMARY.md`.
 - **Plan 05-02** (2026-06-16, ~12 min): Batch apply controller + IPC surface — `applyController.ts` (createApplyController sequential loop, makeTaggerWriteSender); `ipc-types.ts` (3 channels + TagWriteEvent union + ApplyResult + 3 bridge methods); `preload/index.ts` (applyWrites/getPendingCount/onWriteEvent); `ipc/tagger.ts` (filterWritableEdits security gate + tagger:apply-writes/pending-count handlers); `main/index.ts` Phase 5 wiring block. 3 commits. 527 tests green (20 new). Build green. Deviations: [Rule 2] ipc-types channels added before Task 1 GREEN (applyController imports them); [Rule 1] vi.fn() type assertions in test; [Rule 1] App.test.tsx mock extended; [Rule 2] applyController optional in RegisterTaggerHandlersOpts for backward-compat. See `.planning/phases/05-tag-writing-rekordbox-compatibility/05-02-SUMMARY.md`.
 - **Plan 05-03** (2026-06-16, ~7 min): "Appliquer (N)" apply surface — `useTaggerStore` extended with `applyWrites/loadPendingWriteCount/isApplying/applyResult/applyError/writeResults/pendingWriteCount`; `ApplyBanner.tsx` (Appliquer CTA + per-file Écrit/Erreur badges + summary); `tagger.css` banner styles (existing :root tokens only); `TaggerView` mount wired + banner mounted in active-card + end-of-queue branches; E2E apply slice test; manual Mp3tag/Rekordbox/crash-safety checkpoints documented for end-of-phase UAT. 3 commits. 546/546 tests green (19 new). Build green. Deviations: [Rule 1] TaggerView.test.tsx mock missing Phase 5 bridge methods. See `.planning/phases/05-tag-writing-rekordbox-compatibility/05-03-SUMMARY.md`.
+
+## Current Position
+
+Phase: Milestone v1.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-08 — Milestone v1.0 completed and archived
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone
+
+## Deferred Items
+
+Items acknowledged and deferred at milestone close on 2026-06-24 (all human-only verification — no code blocker):
+
+| Category | Item | Status |
+|----------|------|--------|
+| uat | 05-HUMAN-UAT.md (3 open: Rekordbox/Mp3tag/crash-safety manual checks) | partial |
+| uat | 06-HUMAN-UAT.md (1 open: Windows-hardware install smoke-test) | partial |
+| verification | 03-VERIFICATION.md | human_needed |
+| verification | 05-VERIFICATION.md | human_needed |
+| verification | 06-VERIFICATION.md | human_needed |
+
+These surface in `/gsd-progress` and `/gsd-audit-uat` and can be resolved when the maintainer has Rekordbox / a Windows machine available.

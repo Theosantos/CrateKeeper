@@ -1,0 +1,65 @@
+<svg width="1200" height="340" viewBox="0 0 1200 340" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CrateKeeper — desktop DJ library tools">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#15161c"/>
+      <stop offset="1" stop-color="#0f1014"/>
+    </linearGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="0" y2="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F2B84A"/>
+      <stop offset="1" stop-color="#E6952C"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.82" cy="0.32" r="0.55">
+      <stop offset="0" stop-color="#E6A23C" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#E6A23C" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="340" rx="16" fill="url(#bg)"/>
+  <rect width="1200" height="340" rx="16" fill="url(#glow)"/>
+  <rect x="0.5" y="0.5" width="1199" height="339" rx="15.5" fill="none" stroke="#2a2b33" stroke-width="1"/>
+
+  <!-- waveform motif (right third, clear of the text) -->
+  <g fill="url(#amber)" opacity="0.92">
+    <rect x="800"  y="148" width="8" height="44"  rx="4"/>
+    <rect x="815"  y="120" width="8" height="100" rx="4"/>
+    <rect x="830"  y="92"  width="8" height="156" rx="4"/>
+    <rect x="845"  y="58"  width="8" height="224" rx="4"/>
+    <rect x="860"  y="108" width="8" height="124" rx="4"/>
+    <rect x="875"  y="140" width="8" height="60"  rx="4"/>
+    <rect x="890"  y="78"  width="8" height="184" rx="4"/>
+    <rect x="905"  y="42"  width="8" height="256" rx="4"/>
+    <rect x="920"  y="100" width="8" height="140" rx="4"/>
+    <rect x="935"  y="132" width="8" height="76"  rx="4"/>
+    <rect x="950"  y="70"  width="8" height="200" rx="4"/>
+    <rect x="965"  y="50"  width="8" height="240" rx="4"/>
+    <rect x="980"  y="116" width="8" height="108" rx="4"/>
+    <rect x="995"  y="150" width="8" height="40"  rx="4"/>
+    <rect x="1010" y="96"  width="8" height="148" rx="4"/>
+    <rect x="1025" y="62"  width="8" height="216" rx="4"/>
+    <rect x="1040" y="124" width="8" height="92"  rx="4"/>
+    <rect x="1055" y="86"  width="8" height="168" rx="4"/>
+    <rect x="1070" y="138" width="8" height="64"  rx="4"/>
+    <rect x="1085" y="104" width="8" height="132" rx="4"/>
+    <rect x="1100" y="66"  width="8" height="208" rx="4"/>
+    <rect x="1115" y="118" width="8" height="104" rx="4"/>
+    <rect x="1130" y="80"  width="8" height="180" rx="4"/>
+    <rect x="1145" y="134" width="8" height="72"  rx="4"/>
+  </g>
+
+  <!-- left fade keeps the text crisp -->
+  <rect x="0" y="0" width="770" height="340" rx="16" fill="url(#bg)" opacity="0.45"/>
+
+  <!-- wordmark -->
+  <text x="72" y="150" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="76" font-weight="800" letter-spacing="-1.5" fill="#F3F3F5">Crate<tspan fill="#E6A23C">Keeper</tspan></text>
+  <text x="74" y="194" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="21" font-weight="400" fill="#A6A8B2">Reclaim control of your DJ library — without leaving one app.</text>
+
+  <!-- tool chips -->
+  <g font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" font-weight="600">
+    <rect x="74" y="226" width="118" height="38" rx="19" fill="#1e1f28" stroke="#2f3039"/>
+    <text x="133" y="251" fill="#D8DAE2" text-anchor="middle">Analyze</text>
+    <rect x="202" y="226" width="120" height="38" rx="19" fill="#1e1f28" stroke="#2f3039"/>
+    <text x="262" y="251" fill="#D8DAE2" text-anchor="middle">Convert</text>
+    <rect x="332" y="226" width="92" height="38" rx="19" fill="#1e1f28" stroke="#2f3039"/>
+    <text x="378" y="251" fill="#D8DAE2" text-anchor="middle">Tag</text>
+  </g>
+</svg>
